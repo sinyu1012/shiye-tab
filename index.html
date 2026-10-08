@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark"><title>拾页 · 每次打开，拾一点新知</title>
+  <link rel="icon" href="icons/48.png"><link rel="stylesheet" href="styles.css">
+  <script type="module" src="src/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="拾页首页"><span class="brand-mark">拾</span><strong>拾页<span>SHIYE TAB</span></strong></a>
+    <nav class="main-nav" aria-label="页面"><button class="active" id="home">我的看板</button><button id="manage">管理订阅</button></nav>
+    <div class="top-actions"><span class="local-badge"><i></i>只属于你的信息空间</span><button id="settings" class="icon-button" aria-label="外观与设置" title="外观与设置">⚙</button></div>
+  </header>
+  <main>
+    <section class="welcome"><div><p class="eyebrow" id="date"></p><h1>每次打开，<span>拾一点新知。</span></h1><p class="subtitle">关心的事，在这里相遇。</p></div><div class="welcome-tools"><button id="refresh-all" class="button secondary">↻ <span>刷新全部</span></button><button id="add-source" class="button primary">＋ 添加数据源</button></div></section>
+    <section class="toolbar"><nav id="filters" aria-label="内容分类"></nav><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="在看板中查找…" aria-label="搜索看板内容"><kbd>/</kbd></label></section>
+    <div id="preview-note" class="notice" hidden>当前为网页预览。完整跨域订阅功能请在 Chrome 中加载扩展。</div>
+    <section id="board" class="board" aria-label="信息看板"></section>
+    <footer class="page-footer"><span>拾页 <span class="dot">·</span> 少一点噪音，多一点好内容</span><span id="source-count"></span></footer>
+  </main>
+  <dialog id="source-dialog" aria-labelledby="source-title">
+    <form id="source-form">
+      <div class="dialog-heading"><div><p class="eyebrow">YOUR SOURCES</p><h2 id="source-title">添加数据源</h2></div><button type="button" class="icon-button close" aria-label="关闭">×</button></div>
+      <p class="dialog-intro">把喜欢的内容，放到每一次打开里。</p>
+      <label>数据源类型<select name="type" id="source-type"><option value="rss">RSS / Atom / Newsletter</option><option value="json">JSON / 结构化数据</option><option value="life">HowToLiveBetter 随机建议</option><option value="github">GitHub 周榜</option><option value="apple">Apple 中国免费榜</option><option value="qimai">七麦 · 中国 iOS 免费总榜</option></select></label>
+      <div class="form-grid"><label>卡片名称<input name="name" required maxlength="60" placeholder="例如：我的科技周刊"></label><label>分类<input name="category" required maxlength="20" value="订阅" list="category-options"></label></div>
+      <datalist id="category-options"><option value="开发"><option value="生活"><option value="应用"><option value="订阅"></datalist>
+      <div id="url-fields"><label>订阅 / 接口地址<input name="url" type="url" placeholder="https://example.com/feed.xml"></label><p id="source-hint" class="field-hint"></p><label>原站地址（可选）<input name="home" type="url" placeholder="https://example.com"></label></div>
+      <div id="mapping-fields" hidden><p class="field-hint">使用点号访问嵌套字段，例如 data.items。列表路径留空表示根数组。</p><div class="form-grid"><label>列表路径<input name="itemsPath" value="items"></label><label>标题字段<input name="titlePath" value="title"></label><label>链接字段<input name="urlPath" value="url"></label><label>摘要字段<input name="descriptionPath" value="description"></label><label>辅助信息字段<input name="metaPath" value="meta"></label></div></div>
+      <div class="form-grid"><label>显示条数<input name="limit" type="number" min="1" max="30" value="10"></label><label>缓存时长（分钟）<input name="refreshMinutes" type="number" min="5" max="10080" value="60"></label></div>
+      <p class="form-error" id="source-error" role="alert"></p><div class="dialog-footer"><button type="button" class="button secondary close">取消</button><button class="button primary" type="submit" id="save-source">添加到看板</button></div>
+    </form>
+  </dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="dialog-heading"><div><p class="eyebrow">MAKE IT YOURS</p><h2 id="settings-title">让拾页更像你</h2></div><button class="icon-button close" aria-label="关闭">×</button></div><label>外观<select id="theme"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label><label>桌面列数<select id="columns"><option value="2">2 列 · 从容阅读</option><option value="3">3 列 · 恰到好处</option><option value="4">4 列 · 信息优先</option></select></label><div class="settings-section"><h3>把你的看板带走</h3><p class="field-hint">配置只保存在本机。导出文件包含订阅地址，私有链接请妥善保存。</p><div class="backup-actions"><button class="button secondary" id="export">导出配置</button><button class="button secondary" id="import">导入配置</button><input id="import-file" type="file" accept="application/json,.json" hidden></div><p class="field-hint">导入会替换当前卡片配置；新站点需在卡片上单独授权。</p></div><div class="settings-section"><h3>安静、私密、没有多余的事</h3><p class="field-hint">无账号、无统计追踪，不读取浏览历史或邮箱。数据直接从你选择的来源获取。</p></div></dialog>
+  <dialog id="manage-dialog" aria-labelledby="manage-title"><div class="dialog-heading"><div><p class="eyebrow">CURATE YOUR DAY</p><h2 id="manage-title">管理订阅</h2></div><button class="icon-button close" aria-label="关闭">×</button></div><p class="dialog-intro">拖动卡片标题排序，也可以在这里调整顺序。</p><div id="source-list"></div><button id="manage-add" class="button primary full">＋ 添加数据源</button></dialog>
+  <div id="toast" role="status" hidden></div>
+</body>
+</html>

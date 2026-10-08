@@ -1,0 +1,15 @@
+{
+  "name": "shiye-tab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "拾页：自定义信息源的 Chrome 新标签页",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:extension": "node tests/extension.mjs",
+    "check": "node --check src/app.js && node --check src/model.js && node --check src/storage.js && node --check src/sources.js"
+  },
+  "devDependencies": { "playwright": "1.58.2" }
+}

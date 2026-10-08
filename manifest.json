@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "拾页 · Shiye Tab",
+  "version": "0.1.0",
+  "description": "每次打开，拾一点新知。自定义 RSS、GitHub 周榜、生活建议与应用榜单。",
+  "chrome_url_overrides": { "newtab": "index.html" },
+  "permissions": ["storage"],
+  "host_permissions": ["https://github.com/*", "https://raw.githubusercontent.com/*", "https://itunes.apple.com/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none';" }
+}
