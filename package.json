@@ -1,6 +1,6 @@
 {
   "name": "shiye-tab",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "拾页：自定义信息源的 Chrome 新标签页",

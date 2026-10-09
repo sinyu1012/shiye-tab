@@ -102,9 +102,17 @@ export async function loadSource(source) {
     const readme = await fetchText(`${RAW}README.md`);
     const paths = [...new Set([...readme.matchAll(/\]\((book\/[^)#]+\.md)\)/g)].map(m => m[1]))];
     if (!paths.length) throw new Error('未找到生活指南目录，上游结构可能发生变化。');
-    const path = paths[Math.floor(Math.random() * paths.length)];
-    items = parseLife(await fetchText(RAW + path), path);
-    if (!items.length) throw new Error('当前章节无法解析，点击刷新换一个章节。');
+    // Cache the whole directory, so opening a tab or shuffling can cross chapters.
+    // Limit concurrency and only replace the cache after every chapter succeeds.
+    items = [];
+    for (let offset = 0; offset < paths.length; offset += 5) {
+      const chapters = await Promise.all(paths.slice(offset, offset + 5).map(async path => {
+        const entries = parseLife(await fetchText(RAW + path), path);
+        if (!entries.length) throw new Error('生活指南有章节无法解析，请稍后刷新。');
+        return entries;
+      }));
+      items.push(...chapters.flat());
+    }
     sourceUrlValue = LIFE_REPO;
   } else if (source.type === 'github') {
     sourceUrlValue = 'https://github.com/trending?since=weekly';

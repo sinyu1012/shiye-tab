@@ -15,7 +15,8 @@ ctx.on('page', p => p.on('pageerror', e => failures.push(e.message)));
 if (!live) {
   await ctx.route('https://raw.githubusercontent.com/**', route => {
     const readme = route.request().url().endsWith('README.md');
-    route.fulfill({ status: 200, body: readme ? '[3. 精力](book/03-energy.md)' : '# 3. 精力\n\n### 1. 关掉不必要的通知\n- 说人话：把注意力留给当前的事情。\n- 成本：几分钟设置。\n- 证据等级：B\n- 备注：测试内容\n\n### 2. 一次专注一件事\n- 说人话：给自己一段不被打断的时间。\n- 成本：不花钱。\n- 证据等级：B\n' });
+    if (route.request().url().endsWith('02-sleep.md')) return route.fulfill({ status: 200, body: '# 2. 睡眠\n\n### 1. 固定睡眠时间\n- 说人话：保持规律的作息。\n- 成本：安排好时间。\n- 证据等级：B\n' });
+    route.fulfill({ status: 200, body: readme ? '[3. 精力](book/03-energy.md)\n[2. 睡眠](book/02-sleep.md)' : '# 3. 精力\n\n### 1. 关掉不必要的通知\n- 说人话：把注意力留给当前的事情。\n- 成本：几分钟设置。\n- 证据等级：B\n- 备注：测试内容\n\n### 2. 一次专注一件事\n- 说人话：给自己一段不被打断的时间。\n- 成本：不花钱。\n- 证据等级：B\n' });
   });
   await ctx.route('https://github.com/trending?since=weekly', route => route.fulfill({ status: 200, body: '<article class="Box-row"><h2><a href="/sample/repo">sample / repo</a></h2><p>A test repository</p><span>1,234 stars this week</span></article>' }));
   await ctx.route('https://itunes.apple.com/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ feed: { entry: Array.from({ length: 10 }, (_, i) => ({ 'im:name': { label: `测试应用 ${i+1}` }, link: { attributes: { href: 'https://apps.apple.com/cn/app/id123' } }, category: { attributes: { label: '效率' } } })) } }) }));
@@ -38,6 +39,25 @@ try {
     assert.ok(statuses.find(s => s.name === 'GitHub').items > 0, 'Live GitHub should succeed');
     assert.equal(statuses.find(s => s.name === 'App Store').items, 10);
   }
+  if (!live) {
+    // A still-fresh legacy single-chapter cache must be replaced on upgrade.
+    await page.evaluate(async () => {
+      const { getConfig, read, write } = await import('./src/storage.js');
+      const source = (await getConfig()).sources.find(s => s.id === 'life');
+      const cached = await read('cache:life');
+      cached.key = JSON.stringify([source.type, source.url, source.limit, source.mapping]);
+      cached.data.items = cached.data.items.filter(i => i.meta === '2. 睡眠');
+      await write('cache:life', cached);
+    });
+    await page.reload();
+    await page.waitForFunction(async () => {
+      const { read } = await import('./src/storage.js');
+      const cached = await read('cache:life');
+      return new Set(cached?.data.items.map(i => i.meta)).size === 2 &&
+        document.querySelector('.life-content h3') && !document.querySelector('.skeleton');
+    });
+    log.push('Fresh legacy life cache replaced with entries from every fixture chapter.');
+  }
   const layout = await page.evaluate(() => ({
     toolbar: document.querySelector('.topbar').getBoundingClientRect().height,
     boardTop: document.querySelector('#board').getBoundingClientRect().top,
@@ -54,6 +74,7 @@ try {
   assert.equal(await page.locator('.card').count(), 3);
   log.push('Toolbar filters and brand home shortcut verified.');
   const firstLife = await page.locator('.life-content h3').innerText();
+  const firstChapter = await page.locator('.life-content .chapter').innerText();
   await page.getByRole('button', { name: '换一条' }).click();
   // Shuffle awaits chrome.storage before rendering; clicking alone does not await it.
   await page.waitForFunction(previous => {
@@ -62,10 +83,13 @@ try {
   }, firstLife);
   assert.notEqual(await page.locator('.life-content h3').innerText(), firstLife);
   const secondLife = await page.locator('.life-content h3').innerText();
+  const secondChapter = await page.locator('.life-content .chapter').innerText();
+  assert.notEqual(secondChapter, firstChapter);
   await page.reload();
   await page.waitForSelector('.life-content h3');
   assert.notEqual(await page.locator('.life-content h3').innerText(), secondLife);
-  log.push('Life suggestion changes on shuffle and opening/reloading a tab.');
+  assert.notEqual(await page.locator('.life-content .chapter').innerText(), secondChapter);
+  log.push('Life suggestion changes chapters on shuffle and opening/reloading a tab.');
   await page.getByRole('button', { name: '外观与设置' }).click();
   await page.locator('#theme').selectOption('dark');
   await page.locator('#columns').selectOption('4');

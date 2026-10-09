@@ -7,7 +7,7 @@
 统一结果：items（title、url、description、meta）、fetchedAt、sourceUrl；运行态区分 loading / ready / empty / error / stale / unconfigured。
 
 ## 适配器
-- life：解析上游 README 中 book/*.md 目录，从随机章节的三级标题和字段列表抽取条目。缓存章节条目供每次打开重新抽样，更新时重新选章节。
+- life：解析上游 README 中 book/*.md 目录，从各章节的三级标题和字段列表抽取条目。以最多 5 个并发请求读取目录中的所有章节，全部成功后缓存条目供每次打开重新抽样，优先避开上一条所在章节；任一章节失败时保留此前完整缓存。生活源缓存键带版本，升级时淘汰旧版单章节缓存。
 - github：惰性 template 解析 Trending weekly 的 article.Box-row；结构变化时报错。
 - apple：Apple 中国区 topfreeapplications JSON feed，前 10 条。
 - qimai：只接受显式配置的授权 JSON 源；固定 Top 10 并保留来源与更新时间，不绕过签名或验证码。

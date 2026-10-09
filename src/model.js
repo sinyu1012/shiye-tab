@@ -56,12 +56,16 @@ export function validateConfig(input) {
   return { version: 1, theme: ['light', 'dark', 'system'].includes(input.theme) ? input.theme : 'system', columns: [2,3,4].includes(input.columns) ? input.columns : 3, sources };
 }
 export function randomOther(items, previous, rng = Math.random) {
-  const choices = items.filter(i => i.url !== previous);
+  const previousChapter = items.find(i => i.url === previous)?.meta;
+  const otherChapters = previousChapter ? items.filter(i => i.meta !== previousChapter) : [];
+  const choices = otherChapters.length ? otherChapters : items.filter(i => i.url !== previous);
   const pool = choices.length ? choices : items;
   return pool[Math.floor(rng() * pool.length)];
 }
 export function configKey(source) {
   const key = [source.type, source.url, source.limit, source.mapping];
+  // Retire the old cache containing only one random chapter.
+  if (source.type === 'life') key.push('all-chapters-v1');
   // Old feed caches flattened line breaks; refetch once with the new parser.
   if (['rss', 'json', 'qimai'].includes(source.type)) key.push('multiline-description-v1');
   return JSON.stringify(key);
