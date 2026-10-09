@@ -7,7 +7,6 @@ export const DEFAULTS = {
     { id: 'life', type: 'life', name: '好好生活', category: '生活', home: LIFE_REPO, limit: 1, refreshMinutes: 1440 },
     { id: 'github', type: 'github', name: 'GitHub', category: '开发', home: 'https://github.com/trending?since=weekly', limit: 10, refreshMinutes: 60 },
     { id: 'apple', type: 'apple', name: 'App Store', category: '应用', home: 'https://apps.apple.com/cn/charts/iphone', limit: 10, refreshMinutes: 60 },
-    { id: 'qimai', type: 'qimai', name: '七麦数据', category: '应用', home: QIMAI_HOME, url: '', limit: 10, refreshMinutes: 60, mapping: { items: 'items', title: 'title', url: 'url', description: 'description', meta: 'meta' } },
   ],
 };
 export const cloneDefaults = () => structuredClone(DEFAULTS);
@@ -21,7 +20,13 @@ export function safeUrl(value, base) {
 }
 export function sourceUrl(value) {
   const url = safeUrl(value);
-  if (!url || !url.startsWith('https://')) throw new Error('请输入有效的 HTTPS 数据源地址（不含用户名和密码）。');
+  if (!url) throw new Error('请输入有效的数据源地址（不含用户名和密码）。');
+  const { protocol, hostname } = new URL(url);
+  // Keep HTTP support aligned with the narrowly scoped optional host permissions.
+  const httpHosts = ['10.0.20.141', 'localhost', '127.0.0.1'];
+  if (protocol !== 'https:' && !httpHosts.includes(hostname)) {
+    throw new Error('请使用 HTTPS；HTTP 目前支持 10.0.20.141、localhost 和 127.0.0.1（不含用户名和密码）。');
+  }
   return url;
 }
 export function atPath(value, path = '') {
@@ -56,5 +61,8 @@ export function randomOther(items, previous, rng = Math.random) {
   return pool[Math.floor(rng() * pool.length)];
 }
 export function configKey(source) {
-  return JSON.stringify([source.type, source.url, source.limit, source.mapping]);
+  const key = [source.type, source.url, source.limit, source.mapping];
+  // Old feed caches flattened line breaks; refetch once with the new parser.
+  if (['rss', 'json', 'qimai'].includes(source.type)) key.push('multiline-description-v1');
+  return JSON.stringify(key);
 }

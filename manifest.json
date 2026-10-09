@@ -6,7 +6,7 @@
   "chrome_url_overrides": { "newtab": "index.html" },
   "permissions": ["storage"],
   "host_permissions": ["https://github.com/*", "https://raw.githubusercontent.com/*", "https://itunes.apple.com/*"],
-  "optional_host_permissions": ["https://*/*"],
+  "optional_host_permissions": ["https://*/*", "http://10.0.20.141/*", "http://localhost/*", "http://127.0.0.1/*"],
   "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
   "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none';" }
 }

@@ -29,8 +29,8 @@ try {
   log.push('Manifest V3 loaded; chrome://newtab redirected to extension.');
   await page.waitForFunction(() => !document.querySelector('.skeleton'), { timeout: 45000 });
   await page.waitForFunction(() => ![...document.querySelectorAll('.update-status')].some(n => n.textContent.includes('正在更新')), { timeout: 45000 });
-  assert.equal(await page.locator('.card').count(), 4);
-  assert.equal(await page.locator('[data-id="qimai"] .empty-card h3').innerText(), '接入你的七麦榜单');
+  assert.equal(await page.locator('.card').count(), 3);
+  assert.equal(await page.locator('[data-id="qimai"]').count(), 0);
   const statuses = await page.locator('.card').evaluateAll(cards => cards.map(c => ({ name: c.getAttribute('aria-label'), items: c.querySelectorAll('.item-list li').length, life: Boolean(c.querySelector('.life-description')), status: c.querySelector('.update-status').textContent, error: c.querySelector('.empty-card p')?.textContent })));
   log.push(statuses);
   if (live) {
@@ -38,9 +38,28 @@ try {
     assert.ok(statuses.find(s => s.name === 'GitHub').items > 0, 'Live GitHub should succeed');
     assert.equal(statuses.find(s => s.name === 'App Store').items, 10);
   }
+  const layout = await page.evaluate(() => ({
+    toolbar: document.querySelector('.topbar').getBoundingClientRect().height,
+    boardTop: document.querySelector('#board').getBoundingClientRect().top,
+    cardHeight: document.querySelector('[data-id="github"]').getBoundingClientRect().height,
+  }));
+  assert.equal(layout.toolbar, 64);
+  assert.equal(layout.boardTop, 88);
+  assert.equal(layout.cardHeight, 520);
+  log.push({ compactLayout: layout });
   await page.screenshot({ path: `artifacts/${live ? 'live' : 'tested'}-dashboard.png`, fullPage: true });
+  await page.getByRole('button', { name: '开发', exact: true }).click();
+  assert.equal(await page.locator('.card').count(), 1);
+  await page.getByRole('link', { name: '拾页首页' }).click();
+  assert.equal(await page.locator('.card').count(), 3);
+  log.push('Toolbar filters and brand home shortcut verified.');
   const firstLife = await page.locator('.life-content h3').innerText();
   await page.getByRole('button', { name: '换一条' }).click();
+  // Shuffle awaits chrome.storage before rendering; clicking alone does not await it.
+  await page.waitForFunction(previous => {
+    const title = document.querySelector('.life-content h3');
+    return title && title.innerText !== previous;
+  }, firstLife);
   assert.notEqual(await page.locator('.life-content h3').innerText(), firstLife);
   const secondLife = await page.locator('.life-content h3').innerText();
   await page.reload();
@@ -54,6 +73,8 @@ try {
   await page.reload();
   await page.waitForSelector('[data-theme="dark"]');
   assert.equal(await page.locator('#board').getAttribute('data-columns'), '4');
+  await page.waitForSelector('.life-content h3');
+  await page.waitForFunction(() => !document.querySelector('.skeleton'));
   await page.screenshot({ path: 'artifacts/dark-dashboard.png', fullPage: true });
   await page.getByRole('button', { name: '外观与设置' }).click();
   await page.locator('#theme').selectOption('light');
@@ -63,8 +84,8 @@ try {
   await page.getByRole('button', { name: '上移 GitHub', exact: true }).click();
   await page.locator('#manage-dialog .close').click();
   assert.equal(await page.locator('.card').first().getAttribute('data-id'), 'github');
-  await page.locator('[data-id="qimai"] .card-header').dragTo(page.locator('[data-id="github"] .card-header'));
-  assert.equal(await page.locator('.card').first().getAttribute('data-id'), 'qimai');
+  await page.locator('[data-id="apple"] .card-header').dragTo(page.locator('[data-id="github"] .card-header'));
+  assert.equal(await page.locator('.card').first().getAttribute('data-id'), 'apple');
   log.push('Theme, column count persist; manager and drag gesture reorder cards.');
   await page.locator('#search').fill('no-such-content-12345');
   assert.equal(await page.locator('.item-list li').count(), 0);
@@ -111,17 +132,22 @@ try {
     const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: '导出配置', exact: true }).click();
     const download = await downloadPromise; await download.saveAs('artifacts/config-export.json');
     await page.locator('#import-file').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1,"sources":[{"id":"bad","type":"rss","name":"bad","url":"javascript:alert(1)"}]}') });
-    await page.getByText(/导入失败/).waitFor(); assert.equal(await page.locator('.card').count(), 6);
+    await page.getByText(/导入失败/).waitFor(); assert.equal(await page.locator('.card').count(), 5);
     await page.locator('#import-file').setInputFiles('artifacts/config-export.json');
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    assert.equal(await page.locator('.card').count(), 6);
+    assert.equal(await page.locator('.card').count(), 5);
     log.push('Export/import round trip and invalid import rejection verified.');
     await page.getByRole('button', { name: '管理订阅', exact: true }).click();
     await page.getByRole('button', { name: '移除 结构化数据', exact: true }).click();
     await page.locator('#manage-dialog .close').click();
-    assert.equal(await page.locator('.card').count(), 5);
+    assert.equal(await page.locator('.card').count(), 4);
     log.push('Source removal updates the board.');
   }
+  for (const width of [1920, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No horizontal overflow at ${width}px`);
+  }
+  log.push('1920, 1024, 768, 390px responsive layouts have no horizontal overflow.');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'artifacts/mobile-dashboard.png', fullPage: true });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow');

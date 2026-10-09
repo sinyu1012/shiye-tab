@@ -8,13 +8,18 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="index.html" aria-label="拾页首页"><span class="brand-mark">拾</span><strong>拾页<span>SHIYE TAB</span></strong></a>
-    <nav class="main-nav" aria-label="页面"><button class="active" id="home">我的看板</button><button id="manage">管理订阅</button></nav>
-    <div class="top-actions"><span class="local-badge"><i></i>只属于你的信息空间</span><button id="settings" class="icon-button" aria-label="外观与设置" title="外观与设置">⚙</button></div>
+    <a class="brand" id="home" href="index.html" aria-label="拾页首页"><span class="brand-mark"><span class="brand-glyph">拾</span></span><strong>拾页</strong></a>
+    <span class="toolbar-divider" aria-hidden="true"></span>
+    <nav id="filters" aria-label="内容分类"></nav>
+    <div class="top-actions">
+      <label class="search"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="search" type="search" placeholder="搜索内容…" aria-label="搜索看板内容"><kbd>/</kbd></label>
+      <button id="refresh-all" class="icon-button toolbar-refresh" aria-label="刷新全部" title="刷新全部"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M20 12a8 8 0 1 0-2.3 5.7M20 7l-3-3"/></svg></button>
+      <button id="manage" class="manage-button" title="管理订阅"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 4v16M12 9h5M12 14h5"/></svg><span>管理订阅</span></button>
+      <button id="add-source" class="button primary">＋ 添加数据源</button>
+      <button id="settings" class="icon-button" aria-label="外观与设置" title="外观与设置"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-.7 2.4-2.2 1L3.8 6 2 9l1.7 1.9v2.2L2 15l1.8 3 2.3-.4 2.2 1L9 21h6l.7-2.4 2.2-1 2.3.4 1.8-3-1.7-1.9v-2.2L22 9l-1.8-3-2.3.4-2.2-1L15 3Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
   </header>
   <main>
-    <section class="welcome"><div><p class="eyebrow" id="date"></p><h1>每次打开，<span>拾一点新知。</span></h1><p class="subtitle">关心的事，在这里相遇。</p></div><div class="welcome-tools"><button id="refresh-all" class="button secondary">↻ <span>刷新全部</span></button><button id="add-source" class="button primary">＋ 添加数据源</button></div></section>
-    <section class="toolbar"><nav id="filters" aria-label="内容分类"></nav><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="在看板中查找…" aria-label="搜索看板内容"><kbd>/</kbd></label></section>
     <div id="preview-note" class="notice" hidden>当前为网页预览。完整跨域订阅功能请在 Chrome 中加载扩展。</div>
     <section id="board" class="board" aria-label="信息看板"></section>
     <footer class="page-footer"><span>拾页 <span class="dot">·</span> 少一点噪音，多一点好内容</span><span id="source-count"></span></footer>

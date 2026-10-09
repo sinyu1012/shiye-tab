@@ -11,5 +11,8 @@
     "test:extension": "node tests/extension.mjs",
     "check": "node --check src/app.js && node --check src/model.js && node --check src/storage.js && node --check src/sources.js"
   },
-  "devDependencies": { "playwright": "1.58.2" }
+  "devDependencies": {
+    "playwright": "1.58.2"
+  },
+  "license": "MIT"
 }

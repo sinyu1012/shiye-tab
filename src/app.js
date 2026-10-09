@@ -4,7 +4,12 @@ import { loadSource } from './sources.js';
 const $ = s => document.querySelector(s);
 const states = new Map(); const inFlight = new Map();
 let config, category = '全部', query = '', editing = null, dragId = null, toastTimer;
-const icons = { life: '✳', github: '⌘', apple: 'A', qimai: '七', rss: '◔', json: '{ }' };
+const icons = {
+  life: '✳',
+  github: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.86c-2.78.61-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.81a9.6 9.6 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>',
+  apple: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 12 18M15 3 3 21M4 15h16"/></svg>',
+  qimai: '七', rss: '◔', json: '{ }',
+};
 const subtitles = { life: 'HowToLiveBetter', github: '本周趋势', apple: '中国 · iPhone 免费榜', qimai: '中国 · iPhone 免费总榜', rss: '订阅更新', json: '结构化数据' };
 const link = (url, label, cls = '') => safeUrl(url) ? `<a class="${cls}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener noreferrer">${label}</a>` : `<span class="${cls}">${label}</span>`;
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 3800); }
@@ -35,14 +40,17 @@ function card(source) {
   else if (source.type === 'life') {
     const i = shown[0];
     content = `<div class="life-content"><div class="life-label"><span>给生活的一点灵感</span><span>↗</span></div><p class="chapter">${esc(i.meta)}</p><h3>${link(i.url, esc(i.title.replace(/^\d+\.\s*/, '')))}</h3><p class="life-description">${esc(i.description)}</p>${i.cost ? `<div class="life-cost"><span>投入</span><p>${esc(i.cost)}</p></div>` : ''}<div class="life-bottom"><span class="evidence">证据等级 ${esc(i.evidence || '未标注')}</span>${link(i.url, '读完整条目 ↗')}</div>${i.note ? `<details class="life-note"><summary>原文备注与限制</summary><p>${esc(i.note)}</p></details>` : ''}<div class="attribution">摘自 eternity4719 / HowToLiveBetter · ${link('https://creativecommons.org/licenses/by/4.0/deed.zh-hans', 'CC BY 4.0')}<br>节选原文，未改写；更多条件及来源见完整条目。</div></div>`;
+  } else if (source.limit === 1) {
+    const i = shown[0];
+    content = `<div class="reading-content"><div class="reading-label"><span>${esc(subtitles[source.type])}</span>${safeUrl(i.url) ? link(i.url, '<span role="img" aria-label="打开原文">↗</span>', 'reading-arrow') : ''}</div>${i.meta ? `<p class="reading-meta">${esc(i.meta)}</p>` : ''}<h3>${link(i.url, esc(i.title))}</h3>${i.description ? `<p class="reading-description">${esc(i.description)}</p>` : ''}${safeUrl(i.url) ? `<div class="reading-bottom">${link(i.url, '阅读全文 ↗')}</div>` : ''}</div>`;
   } else content = `<ol class="item-list ${source.type === 'github' ? 'github-list' : ''}">${shown.map((i, index) => `<li><span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span><div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p title="${esc(i.description)}">${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}</li>`).join('')}</ol>`;
   const stale = state.status === 'stale';
-  return `<article data-type="${source.type}" class="card ${source.type === 'life' ? 'life-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer"><span class="update-status ${stale ? 'stale' : ''}" title="${data ? new Date(data.fetchedAt).toLocaleString('zh-CN') : ''}"><i></i>${source.type === 'qimai' && !source.url ? '等待接入' : state.status === 'loading' ? '正在更新…' : `${stale ? '旧缓存 · ' : ''}${age(data?.fetchedAt)}`}</span><div>${link(source.home || data?.sourceUrl || source.url, '原站 ↗')}<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button></div></footer></article>`;
+  return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'life' ? 'life-card' : source.limit === 1 ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer"><span class="update-status ${stale ? 'stale' : ''}" title="${data ? new Date(data.fetchedAt).toLocaleString('zh-CN') : ''}"><i></i>${source.type === 'qimai' && !source.url ? '等待接入' : state.status === 'loading' ? '正在更新…' : `${stale ? '旧缓存 · ' : ''}${age(data?.fetchedAt)}`}</span><div>${link(source.home || data?.sourceUrl || source.url, '原站 ↗')}<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button></div></footer></article>`;
 }
 function render() {
   drawFilters();
   const sources = config.sources.filter(s => category === '全部' || s.category === category);
-  $('#board').innerHTML = sources.map(card).join('') + (!query ? `<button class="add-card" id="board-add"><span>＋</span><strong>下一份好内容，由你挑选</strong><p>RSS、Newsletter、JSON…<br>把你关心的世界，收进这一页。</p><b>探索更多数据源 ↗</b></button>` : '');
+  $('#board').innerHTML = sources.map(card).join('') + (!query ? `<button class="add-card" id="board-add"><span>＋</span><strong>添加你关心的内容</strong><p>RSS · Newsletter · JSON</p><b>把你关心的世界，收进这一页 ↗</b></button>` : '');
   applyAppearance();
 }
 async function selectLife(source, state) {
@@ -92,7 +100,8 @@ function sourceFields() {
   form.elements.url.required = ['rss','json'].includes(type);
   form.elements.limit.disabled = ['life','apple','qimai'].includes(type);
   if (form.elements.limit.disabled) form.elements.limit.value = type === 'life' ? 1 : 10;
-  $('#source-hint').textContent = type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的 HTTPS 接口；使用下面的字段映射匹配你的结构。';
+  $('#source-hint').textContent = type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的接口；使用下面的字段映射匹配你的结构。';
+  $('#source-hint').textContent += ' 支持 HTTPS；HTTP 支持 10.0.20.141、localhost 和 127.0.0.1。';
   if (!editing && !custom) { const preset = DEFAULTS.sources.find(s => s.type === type); form.elements.name.value = preset.name; form.elements.category.value = preset.category; }
 }
 function showManager() {
@@ -110,7 +119,7 @@ function registerEvents() {
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } }));
   $('#add-source').onclick = () => openSource(); $('#manage').onclick = showManager;
   $('#manage-add').onclick = () => { $('#manage-dialog').close(); openSource(); };
-  $('#home').onclick = () => { category = '全部'; query = ''; $('#search').value = ''; render(); };
+  $('#home').onclick = e => { e.preventDefault(); category = '全部'; query = ''; $('#search').value = ''; render(); };
   $('#source-type').onchange = sourceFields;
   $('#filters').onclick = e => { const button = e.target.closest('[data-category]'); if (button) { category = button.dataset.category; render(); } };
   $('#search').oninput = e => { query = e.target.value.trim().toLowerCase(); render(); };
@@ -181,7 +190,6 @@ function registerEvents() {
 try {
   config = await getConfig();
 } catch { config = cloneDefaults(); toast('已保存的配置无法读取，暂时显示默认看板。'); }
-$('#date').textContent = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 $('#preview-note').hidden = extension;
 registerEvents(); render();
 void Promise.allSettled(config.sources.map(s => refresh(s)));

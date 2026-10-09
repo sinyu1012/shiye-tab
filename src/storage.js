@@ -13,12 +13,19 @@ export async function remove(key) {
 }
 export async function getConfig() {
   const saved = await read('config');
-  return saved ? validateConfig(saved) : cloneDefaults();
+  const config = saved ? validateConfig(saved) : cloneDefaults();
+  // Remove the retired default placeholder; keep any connected or user-added source.
+  const sources = config.sources.filter(s => !(s.id === 'qimai' && s.type === 'qimai' && !s.url));
+  if (sources.length !== config.sources.length) {
+    config.sources = sources;
+    await write('config', config);
+  }
+  return config;
 }
 export const saveConfig = config => write('config', validateConfig(config));
 export function permission(url, request = false) {
   const u = new URL(sourceUrl(url));
   if (!extension) return Promise.resolve(true);
-  const options = { origins: [`${u.origin}/*`] };
+  const options = { origins: [`${u.protocol}//${u.hostname}/*`] };
   return request ? chrome.permissions.request(options) : chrome.permissions.contains(options);
 }
