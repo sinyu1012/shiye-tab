@@ -10,7 +10,11 @@
 - 发布包：`shiye-tab-0.1.1-webstore.zip`；仅 10 个扩展运行文件，ZIP 根目录包含 manifest.json。
 - SHA-256：`fef9df5f3e230eb7b4dce643faee1b1ca627c2846eb2eec72d51702b42e907b7`。
 - 验证：语法检查、模型测试、构建及固定响应扩展回归通过；跨章节随机修复的真实网络回归已于同日通过。
-- 上传前后台核对：0.1.0 为 Published - public；0.1.1 已打包，等待上传与提审回执。
+- 上传前后台核对：0.1.0 为 Published - public；上传后 Draft 版本为 0.1.1。
+- 已提交审核，后台状态：**Pending review**；回执：`Your extension was submitted for review` / `Item submitted.`。
+- 已选择审核通过后自动发布；提审时线上仍为 0.1.0。
+- 已同步三张当前界面截图、商店介绍、GitHub 主页与 Issues 支持地址、HTTP 白名单权限说明和审核测试步骤。
+- 公开隐私政策 Gist 已同步当前仓库版本，匿名访问 HTTP 200。
 
 ## 0.1.0（首次提交历史）
 

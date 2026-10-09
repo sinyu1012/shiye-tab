@@ -1,4 +1,4 @@
-> 与当前源码对应的商店文案；仓库更新不代表已同步到 Chrome Web Store。
+> 以下文案已随 0.1.1 提交 Chrome Web Store 审核（2026-10-09），当前状态 Pending review。
 
 # Chrome Web Store listing
 
@@ -15,7 +15,7 @@
 拾页是一个轻量、可自定义的 Chrome 新标签页看板。把公开榜单、阅读订阅和结构化信息集中在一页，用卡片排列出自己的信息空间。
 
 【内容随你选择】
-• 好好生活：随机阅读 HowToLiveBetter 的原文条目，保留章节、证据标签和原文链接。
+• 好好生活：从 HowToLiveBetter 各章节随机阅读原文条目，优先避开上次章节，保留章节、证据标签和原文链接。
 • GitHub 周榜：查看 GitHub Trending 本周热门项目及本周新增星标。
 • App Store：查看 Apple 官方中国区 iPhone 免费应用 Top 10。
 • 自定义 RSS / Atom / JSON Feed：订阅支持 feed 的博客和 Newsletter。
@@ -52,4 +52,4 @@ No remote code. JavaScript and CSS are packaged locally. Downloaded Markdown, HT
 
 ## Reviewer test instructions
 
-No login or credentials are required. Open a new tab to view the dashboard. GitHub and Apple cards fetch public data; the life card fetches a random HowToLiveBetter chapter and displays an attributed excerpt. Third-party availability may vary. Qimai is an optional source type and requires a user-supplied authorized JSON endpoint; no Qimai placeholder is included by default. To test custom feeds, add an HTTPS RSS/Atom/JSON Feed URL, approve that origin's optional access prompt, and view its entries. Settings provide theme, column count and configuration import/export. Configuration is local and no developer backend is used.
+No login required. Open a new tab for life advice, GitHub weekly and Apple China charts. Life advice caches all chapters; Shuffle and reopening a tab avoid the last chapter. Qimai is optional. Add an HTTPS RSS/JSON feed and approve its origin; limit 1 shows a reading card with line breaks. Allowlisted local HTTP feeds are optional, not needed for testing. Settings control themes, columns and import/export. Data stays local; no remote executable code.
