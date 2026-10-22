@@ -1,4 +1,4 @@
-> 0.1.3 商店更新文案（2026-10-22）；发布状态与提审回执见 RELEASE.md。
+> 0.1.3 商店更新文案（2026-10-22），已提交审核，后台状态 Pending review；提审回执见 RELEASE.md。
 
 # Chrome Web Store listing
 

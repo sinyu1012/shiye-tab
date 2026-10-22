@@ -2,7 +2,7 @@
 
 # Chrome Web Store 发布记录
 
-## 0.1.3（2026-10-22，已准备待提审）
+## 0.1.3（2026-10-22，已提交审核）
 
 - 上传前在后台 Package 页核对：Published 与 Draft 均为 0.1.2，当前状态 Published - public。
 - 诗集 1,317 联及作者、篇名统一简体，诗词卡片更新为宋体书页风格，适配深浅色；采用随包分发的 Noto Serif SC Medium 500 免费字体子集并保留 SIL OFL 1.1。
@@ -11,8 +11,11 @@
 - SHA-256：`1de9ca060fea4b530625021ef4269ca4da097cfcfe98059edfd69089cb5c7f9c`。
 - 发布验证：语法检查、4 项模型测试、构建、实际扩展固定响应回归、ZIP 完整性及 `git diff --check` 通过；天气原生权限弹窗仍采用隔离测试副本预授权，不修改发布包权限。
 - 三张 1280×800 商店截图已重新生成，均为无 alpha 的 24-bit RGB PNG：浅色、深色、添加数据源。上海天气、生活建议、GitHub 与 App Store 使用真实网络结果，无失败或过期提示；未包含个人订阅。
-- 商店介绍已准备同步简体诗集与本地宋体说明；既有隐私政策与数据使用声明仍适用。
-- 提审回执待后台操作后补充，当前条目不表示已上传、已提审或上线。
+- 已替换并保存三张商店截图，同步简体诗集与本地宋体说明；既有隐私政策与数据使用声明仍适用。
+- 上传后后台 Package 页核对 Draft 为 0.1.3、Published 为 0.1.2。
+- 提审成功回执：`Your extension was submitted for review`；最终后台状态 **Pending review**。
+- 已保持审核通过后自动发布；提交审核不等于已经上线，提审时线上仍为 0.1.2。
+- 本地证据：`../artifacts/webstore-0.1.3-screenshots.png`、`../artifacts/webstore-0.1.3-submitted.png`。
 
 ## 0.1.2（2026-10-16，已提交审核）
 
