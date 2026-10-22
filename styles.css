@@ -261,3 +261,96 @@ dialog input:disabled{opacity:.5}
   *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 
 }
+
+/* Poetry: a quiet book page, bundled Noto Serif SC, and fine landscape lines. */
+@font-face{font-family:"Shiye Poetry";src:url("assets/fonts/ShiyePoetry.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+.poetry-card{--poem-paper:#faf9f5;--poem-ink:#293b35;--poem-muted:#687268;--poem-line:#dedfd6;--poem-soft:#eceedf;--poem-landscape:#8e9d82;--poem-accent:#b25e42;container-type:inline-size;background:var(--poem-paper);color:var(--poem-ink);border-color:var(--poem-line);border-radius:16px}
+:root[data-theme=dark] .poetry-card{--poem-paper:#222b27;--poem-ink:#e4e7db;--poem-muted:#afb9a9;--poem-line:#465047;--poem-soft:#3a4535;--poem-landscape:#8b9c7c;--poem-accent:#e8a570}
+@media(prefers-color-scheme:dark){:root[data-theme=system] .poetry-card{--poem-paper:#222b27;--poem-ink:#e4e7db;--poem-muted:#afb9a9;--poem-line:#465047;--poem-soft:#3a4535;--poem-landscape:#8b9c7c;--poem-accent:#e8a570}}
+.poetry-card .card-header{padding:18px 24px;border-bottom:0;position:relative}
+.poetry-card .card-header::after{content:"";position:absolute;inset:auto 16px 0;height:1px;background:var(--poem-line)}
+.poetry-card .card-heading>span,.poetry-card .card-menu{color:var(--poem-muted)}
+.poetry-card .card-menu:hover{background:var(--poem-soft);color:var(--poem-ink)}
+.poetry-card .source-icon.poetry{background:var(--poem-soft);color:var(--poem-muted)}
+.poetry-card .source-icon svg{width:23px;height:23px;stroke-width:1.3}
+.poetry-content{position:relative;isolation:isolate;min-height:100%;padding:32px 32px 22px;display:flex;flex-direction:column;color:var(--poem-ink);overflow:hidden}
+.poetry-eyebrow{display:flex;align-items:center;gap:13px;font-size:10px;line-height:1.4;letter-spacing:.2em;color:var(--poem-muted)}
+.poetry-eyebrow span{width:26px;height:1.5px;background:var(--poem-accent)}
+.poetry-content figure{margin:24px 0 0;text-align:left;max-width:100%;z-index:1}
+.poetry-verse{font-family:"Shiye Poetry","Noto Serif SC","Songti SC",serif;font-size:clamp(22px,7.6cqw,32px);font-weight:500;line-height:1.9;letter-spacing:.02em;margin:0 0 24px}
+.poetry-verse span{display:block}
+.poetry-content figcaption{position:relative;display:flex;flex-direction:column;gap:6px;padding-left:36px;color:var(--poem-muted);font-size:13px;line-height:1.65}
+.poetry-content figcaption::before{content:"";position:absolute;top:.8em;left:0;width:24px;height:1px;background:var(--poem-muted)}
+.poetry-content cite{font-style:normal;font-size:12px;overflow-wrap:anywhere}
+.poetry-note{margin:auto 0 0;padding-top:34px;color:var(--poem-muted);font-size:11px;line-height:1.6;letter-spacing:.06em;z-index:1}
+.poetry-landscape{position:absolute;right:-10px;bottom:43px;width:72%;max-width:260px;height:auto;stroke:var(--poem-landscape);stroke-width:.8;pointer-events:none;z-index:0}
+.poetry-landscape circle{stroke:var(--poem-accent)}
+.poetry-card .card-footer{margin:0 16px;padding:12px 8px;min-height:64px;border-color:var(--poem-line)}
+.poetry-card .update-status,.poetry-card .card-footer a{color:var(--poem-muted);font-size:11px}
+.poetry-card .poetry-source:hover{color:var(--poem-ink);text-decoration:underline;text-underline-offset:3px}
+.poetry-card .update-status i{background:var(--poem-landscape)}
+.poetry-shuffle{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border-radius:22px;background:var(--poem-soft);color:var(--poem-ink);font-size:12px;white-space:nowrap;transition:background .15s}
+.poetry-shuffle:hover{background:color-mix(in srgb,var(--poem-soft),var(--poem-ink) 8%)}
+.poetry-shuffle .ui-icon{width:17px;height:17px;stroke-width:1.4}
+.poetry-card :is(button,a):focus-visible{outline-color:var(--poem-accent)}
+@container(max-width:340px){.poetry-content{padding-inline:24px}}
+
+/* Time and weather: local display type and an editorial, single-surface card. */
+@font-face{font-family:"Barlow Condensed";src:url("assets/fonts/BarlowCondensed-Bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
+.weather-card{--weather-paper:#faf9f6;--weather-ink:#222321;--weather-muted:#6c6d68;--weather-line:#dedfd9;--weather-accent:#df601d;container-type:inline-size;background:var(--weather-paper);color:var(--weather-ink);border-color:var(--weather-line);border-radius:18px;box-shadow:0 2px 8px #20241c04}
+:root[data-theme=dark] .weather-card{--weather-paper:#202221;--weather-ink:#f4f1e9;--weather-muted:#b0b1a9;--weather-line:#444741;--weather-accent:#f6bc45}
+@media(prefers-color-scheme:dark){:root[data-theme=system] .weather-card{--weather-paper:#202221;--weather-ink:#f4f1e9;--weather-muted:#b0b1a9;--weather-line:#444741;--weather-accent:#f6bc45}}
+.weather-card .card-header{padding:18px 24px 8px;min-height:56px;gap:9px;border:0}
+.weather-marker{width:10px;height:10px;border-radius:50%;background:var(--weather-accent);flex:none}
+.weather-card .card-heading h2{font-size:15px;font-weight:600;letter-spacing:.03em}
+.weather-card .icon-button{color:var(--weather-muted)}
+.weather-card .icon-button:hover{color:var(--weather-ink);background:color-mix(in srgb,var(--weather-ink) 6%,transparent)}
+.weather-icon{width:18px;height:18px;flex:none;vertical-align:middle}
+.weather-card .card-menu .weather-icon{width:22px;height:22px}
+.weather-card .card-content{overflow:auto}
+.weather-content{height:100%;min-height:0;padding:0 24px;display:grid;grid-template-rows:auto minmax(100px,1fr) auto}
+.weather-time-block{padding:8px 0 16px;border-bottom:1px solid var(--weather-line)}
+.clock-eyebrow{margin:0 0 5px;font-size:9px;line-height:14px;font-weight:550;letter-spacing:.3em}
+.weather-clock{display:flex;align-items:baseline;justify-content:flex-start;font-family:"Barlow Condensed",sans-serif;font-size:clamp(90px,32cqw,146px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.025em;line-height:.95;margin:0 0 12px}
+.clock-colon{margin:0 .025em}
+.clock-calendar{display:flex;justify-content:space-between;gap:12px;font-size:14px;line-height:20px;letter-spacing:.025em}
+.weather-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:0;padding:16px 0}
+.weather-reading{min-width:0;flex:1}
+.weather-location{display:flex;align-items:center;gap:7px;padding:0;margin-bottom:7px;color:var(--weather-ink);font-size:14px;line-height:20px;max-width:100%;text-align:left}
+.weather-location>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weather-location .weather-icon:last-child{width:14px;height:14px;color:var(--weather-muted)}
+.weather-location:hover{color:var(--weather-accent)}
+.weather-temperature{font-family:"Barlow Condensed",sans-serif;font-size:64px;font-weight:700;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+.weather-temperature>span{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:15px;font-weight:400;letter-spacing:0;margin-left:12px;vertical-align:middle}
+.weather-range{font-size:10px;line-height:16px;margin:4px 0 0;color:var(--weather-muted)}
+.weather-range>span{padding:0 3px}
+.weather-art{width:clamp(66px,22cqw,96px);height:96px;stroke-width:1.15;color:var(--weather-ink)}
+.weather-art-sun,.weather-art-moon{color:var(--weather-accent)}
+.weather-art-unknown{color:var(--weather-muted);opacity:.4}
+.weather-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--weather-line);padding:17px 0;gap:12px}
+.weather-metrics>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.weather-metrics>div+div{border-left:1px solid var(--weather-line);padding-left:14px}
+.weather-metrics span{display:flex;align-items:center;gap:6px;font-size:11px;line-height:18px;color:var(--weather-muted)}
+.weather-metrics .weather-icon{width:17px;height:17px;color:var(--weather-ink)}
+.weather-metrics strong{font-family:"Barlow Condensed",sans-serif;font-size:26px;font-weight:700;line-height:1;white-space:nowrap}
+.weather-card .card-footer{margin:0 24px;padding:10px 0 12px;min-height:42px;border-color:var(--weather-line)}
+.weather-card .card-footer a{font-size:10px;color:var(--weather-muted)}
+.weather-card .card-footer>div{gap:6px;min-width:0}
+.weather-card .update-status{font-size:9px;color:var(--weather-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.weather-card .update-status.stale{color:var(--weather-muted)}
+.weather-card .refresh-icon .weather-icon{width:14px;height:14px}
+.weather-card .stale-note{font-size:10px;padding:7px 24px;line-height:1.6}
+.weather-retry{text-decoration:underline;padding:3px 0;color:inherit}
+.weather-has-error .weather-time-block{padding-bottom:12px}
+.weather-has-error .weather-clock{font-size:clamp(74px,25cqw,108px)}
+.weather-has-error .weather-summary{padding:10px 0}
+.weather-has-error .weather-temperature{font-size:52px}
+.weather-has-error .weather-art{height:70px}
+.weather-has-error .weather-metrics{padding:12px 0}
+@container(max-width:340px){.weather-card .card-header{padding-inline:20px}.weather-content{padding-inline:20px}.weather-metrics{gap:8px}.weather-metrics>div+div{padding-left:10px}.weather-metrics strong{font-size:24px}.weather-temperature{font-size:56px}.weather-temperature>span{font-size:12px;margin-left:8px}.weather-card .card-footer{margin-inline:20px}.weather-range{font-size:9px}}
+.weather-search{display:flex;align-items:center;gap:8px}
+.weather-search input{margin:0;min-width:0}
+.weather-results{display:grid;gap:6px}
+.weather-results button{text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.6}
+.weather-results button:hover{background:var(--soft)}
+.weather-results small{display:block;color:var(--muted);font-size:10px}

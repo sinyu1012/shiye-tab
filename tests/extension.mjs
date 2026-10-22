@@ -1,10 +1,16 @@
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile, readFile, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import assert from 'node:assert/strict';
 const profile = await mkdtemp(resolve(tmpdir(), 'shiye-test-'));
-const path = resolve('dist'); const live = process.argv.includes('--live');
+const path = resolve(profile, 'extension'); const live = process.argv.includes('--live');
+await cp(resolve('dist'), path, { recursive: true });
+// Headless Chromium cannot confirm native optional-host dialogs. Pregrant only
+// the weather origins in this temporary test copy; the shipped manifest is unchanged.
+const testManifest = JSON.parse(await readFile(resolve(path, 'manifest.json'), 'utf8'));
+testManifest.host_permissions.push('https://geocoding-api.open-meteo.com/*', 'https://api.open-meteo.com/*');
+await writeFile(resolve(path, 'manifest.json'), JSON.stringify(testManifest));
 await mkdir('artifacts', { recursive: true });
 const ctx = await chromium.launchPersistentContext(profile, {
   channel: 'chromium', headless: true, viewport: { width: 1440, height: 1100 },
@@ -23,6 +29,7 @@ if (!live) {
 }
 try {
   const page = await ctx.newPage();
+  if (!live) await page.clock.install();
   await page.goto('chrome://newtab/');
   await page.waitForSelector('#board .card');
   const extensionUrl = page.url();
@@ -30,7 +37,7 @@ try {
   log.push('Manifest V3 loaded; chrome://newtab redirected to extension.');
   await page.waitForFunction(() => !document.querySelector('.skeleton'), { timeout: 45000 });
   await page.waitForFunction(() => ![...document.querySelectorAll('.update-status')].some(n => n.textContent.includes('正在更新')), { timeout: 45000 });
-  assert.equal(await page.locator('.card').count(), 3);
+  assert.equal(await page.locator('.card').count(), 5);
   assert.equal(await page.locator('[data-id="qimai"]').count(), 0);
   const statuses = await page.locator('.card').evaluateAll(cards => cards.map(c => ({ name: c.getAttribute('aria-label'), items: c.querySelectorAll('.item-list li').length, life: Boolean(c.querySelector('.life-description')), status: c.querySelector('.update-status').textContent, error: c.querySelector('.empty-card p')?.textContent })));
   log.push(statuses);
@@ -40,6 +47,57 @@ try {
     assert.equal(statuses.find(s => s.name === 'App Store').items, 10);
   }
   if (!live) {
+    await page.locator('.weather-clock').waitFor();
+    assert.match(await page.locator('.weather-clock').textContent(), /\d{2}:\d{2}/);
+    assert.equal(await page.locator('.weather-temperature').innerText(), '—等待天气');
+    const fixture = { current: { time: Math.floor(Date.now() / 1000), temperature_2m: 24, apparent_temperature: 25, relative_humidity_2m: 65, wind_speed_10m: 8, weather_code: 2, is_day: 1 }, daily: { temperature_2m_max: [27], temperature_2m_min: [18] } };
+    await ctx.route('https://geocoding-api.open-meteo.com/**', r => r.fulfill({ json: { results: [{ name: '杭州', admin1: '浙江', country: '中国', latitude: 30.27, longitude: 120.15, timezone: 'Asia/Shanghai' }] } }));
+    await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ json: fixture }));
+    await page.locator('.weather-location').click();
+    await page.locator('#weather-city').fill('杭州');
+    await page.locator('#weather-search').click();
+    await page.locator('[data-city="0"]').click();
+    await page.getByRole('button', { name: '保存设置', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.weather-temperature').textContent.includes('24°'));
+    assert.match(await page.locator('.weather-location').innerText(), /杭州/);
+    assert.equal(await page.locator('.weather-card').getAttribute('data-timezone'), 'Asia/Shanghai');
+    const weatherFont = await page.evaluate(async () => {
+      await document.fonts.load('700 120px "Barlow Condensed"');
+      return [...document.fonts].some(font => font.family === 'Barlow Condensed' && font.status === 'loaded');
+    });
+    assert.equal(weatherFont, true, 'Bundled clock font loads in the extension');
+    assert.ok(await page.locator('.weather-art').evaluate(el => el.getBBox().width > 0), 'Local SVG symbol renders');
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      await page.locator('.weather-card').screenshot({ path: `artifacts/weather-${theme}.png` });
+    }
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('.weather-temperature').textContent.includes('24°'));
+    await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ status: 503, body: 'Unavailable' }));
+    await page.getByRole('button', { name: '刷新 此刻', exact: true }).click();
+    await page.locator('.weather-card .stale-note').waitFor();
+    assert.match(await page.locator('.weather-temperature').innerText(), /24°/);
+    assert.match(await page.locator('.weather-card .update-status').innerText(), /旧天气/);
+    await page.locator('.weather-card').screenshot({ path: 'artifacts/weather-stale.png' });
+    assert.ok(await page.locator('.weather-card .card-content').evaluate(el => el.scrollHeight <= el.clientHeight), 'Weather metrics remain visible in stale state');
+    await page.evaluate(async () => { await chrome.storage.local.remove('cache:weather'); });
+    await page.reload();
+    await page.locator('.weather-card .stale-note').waitFor();
+    assert.match(await page.locator('.weather-clock').textContent(), /\d{2}:\d{2}/);
+    assert.equal(await page.locator('.weather-temperature').innerText(), '—等待天气');
+    // Exercise the denial path without an unautomatable native permission prompt.
+    await page.evaluate(() => { window.originalWeatherRequest = chrome.permissions.request; chrome.permissions.request = async () => false; });
+    await page.locator('.weather-retry').click();
+    await page.getByText('尚未授权天气服务', { exact: true }).waitFor();
+    await page.evaluate(() => { chrome.permissions.request = window.originalWeatherRequest; });
+    await ctx.unroute('https://api.open-meteo.com/**');
+    await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ json: fixture }));
+    await page.getByRole('button', { name: '刷新 此刻', exact: true }).click();
+    await page.waitForFunction(() => !document.querySelector('.weather-card .stale-note'));
+    const previousTime = await page.locator('.weather-clock').textContent();
+    await page.clock.fastForward(61000);
+    assert.notEqual(await page.locator('.weather-clock').textContent(), previousTime, 'Open tab clock advances without a board rerender');
+    log.push('Weather (pregranted test origins; native consent not automated): city search and selection, persisted timezone, data display, cached fallback and recovery verified.');
     // A still-fresh legacy single-chapter cache must be replaced on upgrade.
     await page.evaluate(async () => {
       const { getConfig, read, write } = await import('./src/storage.js');
@@ -71,7 +129,7 @@ try {
   await page.getByRole('button', { name: '开发', exact: true }).click();
   assert.equal(await page.locator('.card').count(), 1);
   await page.getByRole('link', { name: '拾页首页' }).click();
-  assert.equal(await page.locator('.card').count(), 3);
+  assert.equal(await page.locator('.card').count(), 5);
   log.push('Toolbar filters and brand home shortcut verified.');
   const firstLife = await page.locator('.life-content h3').innerText();
   const firstChapter = await page.locator('.life-content .chapter').innerText();
@@ -90,6 +148,43 @@ try {
   assert.notEqual(await page.locator('.life-content h3').innerText(), secondLife);
   assert.notEqual(await page.locator('.life-content .chapter').innerText(), secondChapter);
   log.push('Life suggestion changes chapters on shuffle and opening/reloading a tab.');
+  const verse = page.locator('.poetry-verse');
+  const firstVerse = await verse.textContent();
+  assert.match(firstVerse, /^[\u3400-\u9fff]+，[\u3400-\u9fff]+[。？！]$/);
+  await page.getByRole('button', { name: '换一句' }).click();
+  await page.waitForFunction(previous => document.querySelector('.poetry-verse')?.textContent !== previous, firstVerse);
+  const secondVerse = await verse.textContent();
+  await page.getByRole('button', { name: '诗词', exact: true }).click();
+  assert.equal(await verse.textContent(), secondVerse);
+  await page.getByRole('link', { name: '拾页首页' }).click();
+  assert.equal(await verse.textContent(), secondVerse);
+  // A new tab must choose again even offline, including its bundled font.
+  await page.evaluate(async () => {
+    const { write } = await import('./src/storage.js');
+    await write('cache:poetry', { data: { items: [{ id: '12', title: '獨坐幽篁裏，彈琴復長嘯。', author: '王維', poemTitle: '竹裏館' }], fetchedAt: Date.now() } });
+  });
+  await ctx.setOffline(true);
+  const poetryTab = await ctx.newPage();
+  await poetryTab.goto('chrome://newtab/');
+  await poetryTab.locator('.poetry-verse').waitFor();
+  assert.notEqual(await poetryTab.locator('.poetry-verse').textContent(), secondVerse);
+  const fontLoaded = await poetryTab.evaluate(async () => {
+    await document.fonts.load('500 28px "Shiye Poetry"');
+    return [...document.fonts].some(font => font.family === 'Shiye Poetry' && font.weight === '500' && font.status === 'loaded');
+  });
+  assert.equal(fontLoaded, true);
+  const offlineVerse = await poetryTab.locator('.poetry-verse').textContent();
+  const { POEMS } = await import('../src/poems.js');
+  assert.ok(POEMS.some(([title]) => title === offlineVerse), 'Old traditional cache does not replace the bundled simplified corpus');
+  assert.equal(await poetryTab.getByRole('button', { name: '换一句', exact: true }).count(), 1);
+  assert.equal(await poetryTab.getByRole('link', { name: '简体诗选' }).getAttribute('href'), 'https://github.com/chinese-poetry/chinese-poetry');
+  for (const theme of ['light', 'dark']) {
+    await poetryTab.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    await poetryTab.locator('.poetry-card').screenshot({ path: `artifacts/poetry-${theme}.png` });
+  }
+  await poetryTab.close();
+  await ctx.setOffline(false);
+  log.push('Poetry: simplified corpus despite old traditional cache, complete couplets, no immediate repeat, stable filtering, offline tab, local Medium font, single shuffle action and source link verified.');
   await page.getByRole('button', { name: '外观与设置' }).click();
   await page.locator('#theme').selectOption('dark');
   await page.locator('#columns').selectOption('4');
@@ -105,6 +200,7 @@ try {
   await page.locator('#columns').selectOption('3');
   await page.locator('#settings-dialog .close').click();
   await page.getByRole('button', { name: '管理订阅', exact: true }).click();
+  await page.getByRole('button', { name: '上移 GitHub', exact: true }).click();
   await page.getByRole('button', { name: '上移 GitHub', exact: true }).click();
   await page.locator('#manage-dialog .close').click();
   assert.equal(await page.locator('.card').first().getAttribute('data-id'), 'github');
@@ -156,25 +252,58 @@ try {
     const downloadPromise = page.waitForEvent('download'); await page.getByRole('button', { name: '导出配置', exact: true }).click();
     const download = await downloadPromise; await download.saveAs('artifacts/config-export.json');
     await page.locator('#import-file').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1,"sources":[{"id":"bad","type":"rss","name":"bad","url":"javascript:alert(1)"}]}') });
-    await page.getByText(/导入失败/).waitFor(); assert.equal(await page.locator('.card').count(), 5);
+    await page.getByText(/导入失败/).waitFor(); assert.equal(await page.locator('.card').count(), 7);
     await page.locator('#import-file').setInputFiles('artifacts/config-export.json');
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    assert.equal(await page.locator('.card').count(), 5);
+    assert.equal(await page.locator('.card').count(), 7);
     log.push('Export/import round trip and invalid import rejection verified.');
     await page.getByRole('button', { name: '管理订阅', exact: true }).click();
     await page.getByRole('button', { name: '移除 结构化数据', exact: true }).click();
     await page.locator('#manage-dialog .close').click();
-    assert.equal(await page.locator('.card').count(), 4);
+    assert.equal(await page.locator('.card').count(), 6);
     log.push('Source removal updates the board.');
+    await page.getByRole('button', { name: '管理订阅', exact: true }).click();
+    await page.getByRole('button', { name: '移除 拾一句诗', exact: true }).click();
+    await page.locator('#manage-dialog .close').click();
+    await page.reload();
+    await page.locator('.life-content h3').waitFor();
+    assert.equal(await page.locator('.poetry-card').count(), 0, 'Saved configurations do not acquire unwanted cards');
+    await page.getByRole('button', { name: '＋ 添加数据源', exact: true }).first().click();
+    await page.locator('#source-type').selectOption('poetry');
+    assert.equal(await page.locator('#source-form [name="limit"]').inputValue(), '1');
+    assert.equal(await page.locator('#source-form [name="refreshMinutes"]').isDisabled(), true);
+    await page.getByRole('button', { name: '添加到看板', exact: true }).click();
+    await verse.waitFor();
+    await page.reload();
+    await verse.waitFor();
+    assert.equal(await page.locator('.poetry-card').count(), 1);
+    assert.ok(await page.locator('.poetry-content figcaption').textContent());
+    log.push('Existing configuration retained; poetry added through UI and persisted across reload.');
   }
   for (const width of [1920, 1024, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No horizontal overflow at ${width}px`);
+    assert.ok(await page.locator('.weather-card .card-content').evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight), `Weather metrics fit at ${width}px`);
+    assert.ok(await verse.evaluate(el => el.scrollWidth <= el.clientWidth), `Poetry fits at ${width}px`);
   }
   log.push('1920, 1024, 768, 390px responsive layouts have no horizontal overflow.');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'artifacts/mobile-dashboard.png', fullPage: true });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow');
+  await page.locator('.weather-card').screenshot({ path: 'artifacts/weather-mobile.png' });
+  if (!live) {
+    await page.getByRole('button', { name: '管理订阅', exact: true }).click();
+    await page.getByRole('button', { name: '移除 此刻', exact: true }).click();
+    await page.locator('#manage-dialog .close').click();
+    await page.reload();
+    await page.locator('.poetry-card').waitFor();
+    assert.equal(await page.locator('.weather-card').count(), 0, 'Removed weather card stays removed');
+    await page.evaluate(async () => { await chrome.storage.local.remove('weather-card-introduced'); });
+    await page.reload();
+    await page.locator('.weather-card').waitFor();
+    assert.equal(await page.locator('.weather-card').count(), 1, 'Old saved configuration receives one weather card');
+    log.push('Weather clock tick, empty-cache failure, permission denial, visible metrics, one-time migration and persistent removal verified.');
+  }
   assert.deepEqual(failures, []);
   log.push('390px layout has no horizontal overflow; no uncaught page errors.');
   await writeFile(`artifacts/${live ? 'live' : 'test'}-results.json`, JSON.stringify(log, null, 2));

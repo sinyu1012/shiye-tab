@@ -28,9 +28,15 @@
     <form id="source-form">
       <div class="dialog-heading"><div><p class="eyebrow">YOUR SOURCES</p><h2 id="source-title">添加数据源</h2></div><button type="button" class="icon-button close" aria-label="关闭">×</button></div>
       <p class="dialog-intro">把喜欢的内容，放到每一次打开里。</p>
-      <label>数据源类型<select name="type" id="source-type"><option value="rss">RSS / Atom / Newsletter</option><option value="json">JSON / 结构化数据</option><option value="life">HowToLiveBetter 随机建议</option><option value="github">GitHub 周榜</option><option value="apple">Apple 中国免费榜</option><option value="qimai">七麦 · 中国 iOS 免费总榜</option></select></label>
+      <label>数据源类型<select name="type" id="source-type"><option value="rss">RSS / Atom / Newsletter</option><option value="json">JSON / 结构化数据</option><option value="weather">时间与天气 · 此刻</option><option value="poetry">诗词 · 离线随机一句</option><option value="life">HowToLiveBetter 随机建议</option><option value="github">GitHub 周榜</option><option value="apple">Apple 中国免费榜</option><option value="qimai">七麦 · 中国 iOS 免费总榜</option></select></label>
       <div class="form-grid"><label>卡片名称<input name="name" required maxlength="60" placeholder="例如：我的科技周刊"></label><label>分类<input name="category" required maxlength="20" value="订阅" list="category-options"></label></div>
-      <datalist id="category-options"><option value="开发"><option value="生活"><option value="应用"><option value="订阅"></datalist>
+      <datalist id="category-options"><option value="诗词"><option value="开发"><option value="生活"><option value="应用"><option value="订阅"></datalist>
+      <div id="weather-fields" hidden>
+        <label for="weather-city">天气城市</label><div class="weather-search"><input id="weather-city" placeholder="输入城市，例如：杭州 / Hangzhou" maxlength="100"><button type="button" class="button secondary" id="weather-search">搜索</button></div>
+        <p class="field-hint" id="weather-selection">尚未选择城市。时钟默认显示设备时间。</p>
+        <div id="weather-results" class="weather-results" aria-live="polite"></div>
+        <p class="field-hint">选择城市后显示当地时间与天气。城市查询和天气由 Open-Meteo 提供，不读取设备定位。</p>
+      </div>
       <div id="url-fields"><label>订阅 / 接口地址<input name="url" type="url" placeholder="https://example.com/feed.xml"></label><p id="source-hint" class="field-hint"></p><label>原站地址（可选）<input name="home" type="url" placeholder="https://example.com"></label></div>
       <div id="mapping-fields" hidden><p class="field-hint">使用点号访问嵌套字段，例如 data.items。列表路径留空表示根数组。</p><div class="form-grid"><label>列表路径<input name="itemsPath" value="items"></label><label>标题字段<input name="titlePath" value="title"></label><label>链接字段<input name="urlPath" value="url"></label><label>摘要字段<input name="descriptionPath" value="description"></label><label>辅助信息字段<input name="metaPath" value="meta"></label></div></div>
       <div class="form-grid"><label>显示条数<input name="limit" type="number" min="1" max="30" value="10"></label><label>缓存时长（分钟）<input name="refreshMinutes" type="number" min="5" max="10080" value="60"></label></div>

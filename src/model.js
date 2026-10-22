@@ -1,11 +1,13 @@
 export const LIFE_REPO = 'https://github.com/eternity4719/HowToLiveBetter';
 export const QIMAI_HOME = 'https://www.qimai.cn/rank/index/brand/free/country/cn/genre/36/device/iphone';
-export const TYPES = ['life', 'github', 'apple', 'qimai', 'rss', 'json'];
+export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json'];
 export const DEFAULTS = {
   version: 1, theme: 'system', columns: 3,
   sources: [
+    { id: 'weather', type: 'weather', name: '此刻', category: '生活', home: 'https://open-meteo.com/', limit: 1, refreshMinutes: 30 },
     { id: 'life', type: 'life', name: '好好生活', category: '生活', home: LIFE_REPO, limit: 1, refreshMinutes: 1440 },
     { id: 'github', type: 'github', name: 'GitHub', category: '开发', home: 'https://github.com/trending?since=weekly', limit: 10, refreshMinutes: 60 },
+    { id: 'poetry', type: 'poetry', name: '拾一句诗', category: '诗词', home: 'https://github.com/chinese-poetry/chinese-poetry', limit: 1, refreshMinutes: 1440 },
     { id: 'apple', type: 'apple', name: 'App Store', category: '应用', home: 'https://apps.apple.com/cn/charts/iphone', limit: 10, refreshMinutes: 60 },
   ],
 };
@@ -47,13 +49,26 @@ export function validateConfig(input) {
     if (!name) throw new Error('数据源名称不能为空。');
     const url = string(s.url, '', 3000);
     if (['rss', 'json'].includes(s.type) || url) sourceUrl(url);
+    const location = s.type === 'weather' ? validateWeatherLocation(s.location) : undefined;
     const mapping = {};
     for (const key of ['items', 'title', 'url', 'description', 'meta']) mapping[key] = string(s.mapping?.[key], key, 200);
     return { id: s.id, type: s.type, name, category: string(s.category, '订阅', 20) || '订阅', url,
-      home: safeUrl(string(s.home, '', 3000)), limit: s.type === 'life' ? 1 : s.type === 'qimai' || s.type === 'apple' ? 10 : Math.min(30, Math.max(1, Number(s.limit) || 10)),
+      ...(s.type === 'weather' ? { location } : {}),
+      home: safeUrl(string(s.home, '', 3000)), limit: ['weather', 'life', 'poetry'].includes(s.type) ? 1 : s.type === 'qimai' || s.type === 'apple' ? 10 : Math.min(30, Math.max(1, Number(s.limit) || 10)),
       refreshMinutes: Math.min(10080, Math.max(5, Number(s.refreshMinutes) || 60)), mapping };
   });
   return { version: 1, theme: ['light', 'dark', 'system'].includes(input.theme) ? input.theme : 'system', columns: [2,3,4].includes(input.columns) ? input.columns : 3, sources };
+}
+export function validateWeatherLocation(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || !string(value.name) ||
+    !Number.isFinite(value.latitude) || Math.abs(value.latitude) > 90 ||
+    !Number.isFinite(value.longitude) || Math.abs(value.longitude) > 180 || typeof value.timezone !== 'string') {
+    throw new Error('天气城市信息无效，请重新搜索并选择城市。');
+  }
+  try { new Intl.DateTimeFormat('zh-CN', { timeZone: value.timezone }); }
+  catch { throw new Error('城市时区无效，请重新选择城市。'); }
+  return { name: string(value.name, '', 100), latitude: value.latitude, longitude: value.longitude, timezone: value.timezone };
 }
 export function randomOther(items, previous, rng = Math.random) {
   const previousChapter = items.find(i => i.url === previous)?.meta;
@@ -64,6 +79,7 @@ export function randomOther(items, previous, rng = Math.random) {
 }
 export function configKey(source) {
   const key = [source.type, source.url, source.limit, source.mapping];
+  if (source.type === 'weather') key.push(source.location);
   // Retire the old cache containing only one random chapter.
   if (source.type === 'life') key.push('all-chapters-v1');
   // Old feed caches flattened line breaks; refetch once with the new parser.

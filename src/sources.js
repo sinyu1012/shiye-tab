@@ -97,7 +97,15 @@ export function parseJson(text, source) {
   })).filter(i => i.title);
 }
 export async function loadSource(source) {
+  if (source.type === 'weather') {
+    const { loadWeather } = await import('./weather.js');
+    return loadWeather(source);
+  }
   let items, sourceUrlValue;
+  if (source.type === 'poetry') {
+    const { POEMS } = await import('./poems.js');
+    return { items: POEMS.map(([title, author, poemTitle], index) => ({ id: String(index), title, author, poemTitle, description: `${author} ${poemTitle}` })), fetchedAt: Date.now() };
+  }
   if (source.type === 'life') {
     const readme = await fetchText(`${RAW}README.md`);
     const paths = [...new Set([...readme.matchAll(/\]\((book\/[^)#]+\.md)\)/g)].map(m => m[1]))];

@@ -1,6 +1,6 @@
 # 拾页 · Shiye Tab 隐私政策 / Privacy Policy
 
-生效日期 / Effective date: 2026-10-09
+生效日期 / Effective date: 2026-10-10
 
 拾页由 GitHub 用户 sinyu1012 开发，用于将 Chrome 新标签页替换为用户自定义的信息看板。
 
@@ -8,11 +8,15 @@
 
 数据源名称和地址、分类、JSON 字段映射、卡片顺序、主题、列数、内容缓存、抓取时间及上一次随机建议的链接保存在本机的 Chrome 扩展存储（chrome.storage.local）。这些信息用于呈现和恢复您的看板，不通过拾页的服务器同步。拾页没有自建服务器、用户账号、广告 SDK 或统计分析 SDK。
 
-您在看板输入的搜索词只用于本地筛选当前内容，不发送到搜索引擎或开发者。配置导入导出由您主动发起；导出的 JSON 可能包含私有订阅地址，请妥善保管。
+天气城市名称、城市中心经纬度和时区也保存在本机，用于查询天气和显示城市当地时间；不读取设备定位。
+
+您在看板输入的内容搜索词只用于本地筛选当前内容，不发送到搜索引擎或开发者。配置导入导出由您主动发起；导出的 JSON 可能包含私有订阅地址，请妥善保管。
 
 ## 2. 网络请求与第三方
 
 打开新标签页或手动刷新时，扩展可能直接向 GitHub、raw.githubusercontent.com、Apple iTunes RSS，以及您自行添加并授权的 HTTPS 数据源或白名单内的本地 HTTP 数据源发送请求。缓存有效期内会复用本地内容。
+
+使用天气功能时，您输入的城市查询词发送至 geocoding-api.open-meteo.com，选定城市的中心经纬度与时区发送至 api.open-meteo.com。两个域名在首次搜索城市或重新连接天气时申请授权；页面可见且缓存过期时会自动更新天气。
 
 这些第三方服务器会接收到建立网络连接所需的信息，例如 IP 地址和您配置的请求 URL。若您添加了包含访问令牌的订阅 URL，该令牌会随请求发送给该 URL 对应的服务。开发者不会接收这些请求或订阅地址。扩展的数据请求使用 credentials: omit，不附带浏览器 cookies；使用 no-referrer 策略，不发送来源页面地址。点击原文链接后访问的网站适用各自的隐私政策，浏览器可能正常使用您在该网站的登录状态。
 
@@ -22,6 +26,7 @@
 
 - storage：保存本地看板配置、内容缓存和上一次随机建议。
 - GitHub、raw.githubusercontent.com、itunes.apple.com 站点访问权限：获取内置公开信息源。
+- Open-Meteo 可选站点权限：按需查询城市与天气。
 - 可选 HTTPS 及白名单本地 HTTP 站点权限：仅在您添加或连接自定义数据源时申请对应站点，用于读取 RSS、Atom、JSON Feed 或 JSON 内容。不会自动获得全部站点访问权。
 
 拾页不申请浏览历史、邮箱、通讯录、位置、摄像头或麦克风权限，不读取密码，不向普通网页注入内容脚本。
@@ -40,7 +45,7 @@
 
 ## English summary
 
-Shiye Tab is a customizable new-tab dashboard developed by GitHub user sinyu1012. It stores dashboard preferences, source URLs, cached content, fetch timestamps, and the last displayed suggestion locally in chrome.storage.local. Search queries are processed locally. There is no developer-operated backend, account system, analytics SDK, advertising SDK, or developer collection/sale of personal data.
+Shiye Tab is a customizable new-tab dashboard developed by GitHub user sinyu1012. It stores dashboard preferences, source URLs, cached content, fetch timestamps, and the last displayed suggestion locally in chrome.storage.local. Dashboard content searches are processed locally. Weather city names, city-center coordinates and timezones are stored locally; device location is not accessed. City search terms are sent to geocoding-api.open-meteo.com, and selected city coordinates and timezone to api.open-meteo.com after site authorization. Weather updates when the visible page finds the cache expired. There is no developer-operated backend, account system, analytics SDK, advertising SDK, or developer collection/sale of personal data.
 
 The extension connects directly to its built-in public sources and to HTTPS feeds or allowlisted local HTTP feeds explicitly configured and authorized by the user. Those source servers receive normal connection information, including IP address and the requested URL. Tokens embedded in a feed URL are sent only as part of that request to the corresponding service. Fetch requests omit cookies and use a no-referrer policy. Following an original-content link opens the source website under its own privacy policy and normal browser login behavior.
 

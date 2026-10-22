@@ -20,6 +20,16 @@ export async function getConfig() {
     config.sources = sources;
     await write('config', config);
   }
+  // Introduce the card once; removing it afterwards remains a persistent choice.
+  if (!await read('weather-card-introduced')) {
+    if (!config.sources.some(s => s.type === 'weather') && config.sources.length < 40) {
+      const weather = cloneDefaults().sources.find(s => s.type === 'weather');
+      if (config.sources.some(s => s.id === weather.id)) weather.id = crypto.randomUUID();
+      config.sources.unshift(weather);
+    }
+    await saveConfig(config);
+    await write('weather-card-introduced', true);
+  }
   return config;
 }
 export const saveConfig = config => write('config', validateConfig(config));

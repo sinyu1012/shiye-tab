@@ -1,4 +1,4 @@
-> 以下文案已随 0.1.1 提交 Chrome Web Store 审核（2026-10-09），当前状态 Pending review。
+> 0.1.3 商店更新文案（2026-10-22）；发布状态与提审回执见 RELEASE.md。
 
 # Chrome Web Store listing
 
@@ -15,6 +15,8 @@
 拾页是一个轻量、可自定义的 Chrome 新标签页看板。把公开榜单、阅读订阅和结构化信息集中在一页，用卡片排列出自己的信息空间。
 
 【内容随你选择】
+• 此刻：选择城市后显示当地时间、天气、温度、体感、湿度和风速；无需设备定位。
+• 拾一句诗：从本地 1,317 联简体唐诗中随机展示完整诗句、作者和篇名；采用宋体书页风格，字体随扩展本地加载，离线也能阅读。
 • 好好生活：从 HowToLiveBetter 各章节随机阅读原文条目，优先避开上次章节，保留章节、证据标签和原文链接。
 • GitHub 周榜：查看 GitHub Trending 本周热门项目及本周新增星标。
 • App Store：查看 Apple 官方中国区 iPhone 免费应用 Top 10。
@@ -36,15 +38,15 @@
 
 ## Single purpose
 
-Replace the Chrome new-tab page with one customizable dashboard that displays the user's chosen public feeds, rankings, and structured content. Source management, filtering, themes, layout and local caching all support this single dashboard purpose.
+Replace the Chrome new-tab page with one customizable dashboard displaying the user's chosen public feeds, rankings, local poetry, clock and city weather. Source management, filtering, themes, layout and local caching support this single dashboard purpose.
 
 ## storage permission justification
 
-Store dashboard source configuration, card order, display preferences, cached feed content and the last random suggestion locally so the dashboard persists across new tabs and can reuse cached results. No data is sent to a developer server.
+Store dashboard source configuration, card order, display preferences, cached feed and weather content, selected weather city name, city-center coordinates and timezone, and the last random life suggestion or poem locally. This restores the dashboard across new tabs and reuses cached results. No data is sent to a developer server.
 
 ## Host permission justification
 
-The built-in dashboard fetches GitHub Trending from github.com, HowToLiveBetter Markdown from raw.githubusercontent.com, and the China App Store chart from itunes.apple.com. Optional https://*/* is required because users may add RSS/Atom/JSON feeds on arbitrary HTTPS domains; the extension requests access only to the selected source's origin when the user adds or reconnects it. Explicitly allowlisted local HTTP hosts are also optional and require per-site authorization. No content scripts are injected and browsing history is not read.
+The built-in dashboard fetches GitHub Trending from github.com, HowToLiveBetter Markdown from raw.githubusercontent.com, and the China App Store chart from itunes.apple.com. Optional https://*/* is required because users may add RSS/Atom/JSON feeds on arbitrary HTTPS domains; the extension requests access only to the selected source's origin when the user adds or reconnects it. Weather requests optional access to geocoding-api.open-meteo.com for city search and api.open-meteo.com for the selected city's forecast. No device geolocation is accessed. Explicitly allowlisted local HTTP hosts are also optional and require per-site authorization. No content scripts are injected and browsing history is not read.
 
 ## Remote code
 
@@ -52,4 +54,8 @@ No remote code. JavaScript and CSS are packaged locally. Downloaded Markdown, HT
 
 ## Reviewer test instructions
 
-No login required. Open a new tab for life advice, GitHub weekly and Apple China charts. Life advice caches all chapters; Shuffle and reopening a tab avoid the last chapter. Qimai is optional. Add an HTTPS RSS/JSON feed and approve its origin; limit 1 shows a reading card with line breaks. Allowlisted local HTTP feeds are optional, not needed for testing. Settings control themes, columns and import/export. Data stays local; no remote executable code.
+No login. Open a new tab. Weather: click the city, approve both Open-Meteo hosts, search Shanghai, select and save; no device location. Poetry and font work offline; shuffle/new tab changes the couplet. Existing users add Poetry via Add source. Life shuffle/new tab changes chapters. GitHub/Apple charts load online. Add HTTPS RSS/JSON and approve its origin; limit 1 shows a reading card. Settings: themes, columns, import/export. Data stays local; no remote code.
+
+## Data usage
+
+后台已勾选 Location：用户选择的城市及城市中心经纬度用于天气查询；不读取设备定位，开发者不接收这些数据。公开隐私政策已同步说明本地存储和 Open-Meteo 请求。
