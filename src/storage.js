@@ -30,6 +30,12 @@ export async function getConfig() {
     await saveConfig(config);
     await write('weather-card-introduced', true);
   }
+  // Upgrade the previous default once; later manual column choices stay intact.
+  if (!await read('compact-layout-introduced')) {
+    if (config.columns === 3) config.columns = 4;
+    await saveConfig(config);
+    await write('compact-layout-introduced', true);
+  }
   return config;
 }
 export const saveConfig = config => write('config', validateConfig(config));

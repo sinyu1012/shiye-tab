@@ -67,7 +67,7 @@ export function parseFeed(text, base) {
   if (text.trim().startsWith('{')) {
     const feed = JSON.parse(text);
     if (!Array.isArray(feed.items)) throw new Error('JSON Feed 缺少 items 数组。');
-    return feed.items.slice(0, 100).map(i => ({ title: plain(i.title || '无标题'), url: safeUrl(i.url || i.external_url, base), description: plain(i.summary || i.content_text || i.content_html, true).slice(0, 500), meta: dateLabel(i.date_published) }));
+    return feed.items.slice(0, 100).map(i => ({ title: plain(i.title || '无标题'), url: safeUrl(i.url || i.external_url, base), description: plain(i.summary || i.content_text || i.content_html, true), meta: dateLabel(i.date_published) }));
   }
   const doc = new DOMParser().parseFromString(text, 'text/xml');
   if (doc.querySelector('parsererror') || !['rss', 'feed', 'RDF'].includes(doc.documentElement.localName)) throw new Error('不是有效的 RSS / Atom / JSON Feed，请填写订阅地址。');
@@ -77,7 +77,7 @@ export function parseFeed(text, base) {
     const links = [...n.getElementsByTagName('link')];
     const link = links.find(l => l.getAttribute('rel') === 'alternate') || links.find(l => !l.getAttribute('rel'));
     const rawUrl = link?.getAttribute('href') || link?.textContent || (/^https?:/.test(field('guid')) ? field('guid') : '');
-    return { title: plain(field('title') || '无标题'), url: safeUrl(rawUrl, base), description: plain(field('description') || field('summary') || field('content'), true).slice(0, 500), meta: dateLabel(field('pubDate') || field('published') || field('updated')) };
+    return { title: plain(field('title') || '无标题'), url: safeUrl(rawUrl, base), description: plain(field('description') || field('summary') || field('content'), true), meta: dateLabel(field('pubDate') || field('published') || field('updated')) };
   });
 }
 function dateLabel(value) {
@@ -92,7 +92,7 @@ export function parseJson(text, source) {
   return rows.slice(0, 100).map(row => ({
     title: plain(atPath(row, m.title || 'title') ?? ''),
     url: safeUrl(atPath(row, m.url || 'url'), source.url),
-    description: plain(atPath(row, m.description || 'description') ?? '', true).slice(0, 500),
+    description: plain(atPath(row, m.description || 'description') ?? '', true),
     meta: plain(atPath(row, m.meta || 'meta') ?? '').slice(0, 60),
   })).filter(i => i.title);
 }

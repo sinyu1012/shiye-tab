@@ -2,7 +2,7 @@ export const LIFE_REPO = 'https://github.com/eternity4719/HowToLiveBetter';
 export const QIMAI_HOME = 'https://www.qimai.cn/rank/index/brand/free/country/cn/genre/36/device/iphone';
 export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json'];
 export const DEFAULTS = {
-  version: 1, theme: 'system', columns: 3,
+  version: 1, theme: 'system', columns: 4,
   sources: [
     { id: 'weather', type: 'weather', name: '此刻', category: '生活', home: 'https://open-meteo.com/', limit: 1, refreshMinutes: 30 },
     { id: 'life', type: 'life', name: '好好生活', category: '生活', home: LIFE_REPO, limit: 1, refreshMinutes: 1440 },
@@ -57,7 +57,7 @@ export function validateConfig(input) {
       home: safeUrl(string(s.home, '', 3000)), limit: ['weather', 'life', 'poetry'].includes(s.type) ? 1 : s.type === 'qimai' || s.type === 'apple' ? 10 : Math.min(30, Math.max(1, Number(s.limit) || 10)),
       refreshMinutes: Math.min(10080, Math.max(5, Number(s.refreshMinutes) || 60)), mapping };
   });
-  return { version: 1, theme: ['light', 'dark', 'system'].includes(input.theme) ? input.theme : 'system', columns: [2,3,4].includes(input.columns) ? input.columns : 3, sources };
+  return { version: 1, theme: ['light', 'dark', 'system'].includes(input.theme) ? input.theme : 'system', columns: [2,3,4].includes(input.columns) ? input.columns : DEFAULTS.columns, sources };
 }
 export function validateWeatherLocation(value) {
   if (value == null) return null;
@@ -82,7 +82,7 @@ export function configKey(source) {
   if (source.type === 'weather') key.push(source.location);
   // Retire the old cache containing only one random chapter.
   if (source.type === 'life') key.push('all-chapters-v1');
-  // Old feed caches flattened line breaks; refetch once with the new parser.
-  if (['rss', 'json', 'qimai'].includes(source.type)) key.push('multiline-description-v1');
+  // Old feed caches truncated descriptions; refetch the full text for the reader.
+  if (['rss', 'json', 'qimai'].includes(source.type)) key.push('full-description-v2');
   return JSON.stringify(key);
 }

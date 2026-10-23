@@ -29,28 +29,50 @@ function drawFilters() {
   $('#filters').innerHTML = all.map(c => `<button class="filter ${category === c ? 'selected' : ''}" data-category="${esc(c)}">${esc(c)}${c === '全部' ? `<span>${config.sources.length}</span>` : ''}</button>`).join('');
   $('#source-count').textContent = `${config.sources.length} 个数据源 · 本地保存`;
 }
+function shownItems(source, state) {
+  const items = ['life', 'poetry'].includes(source.type) ? (state.selected ? [state.selected] : []) : state.data?.items || [];
+  return query ? items.filter(i => `${i.title} ${i.description}`.toLowerCase().includes(query)) : items;
+}
+function lifeContent(i, expanded = false) {
+  return `<div class="life-content"><p class="chapter">${esc(i.meta)}</p><h3>${link(i.url, esc(i.title.replace(/^\d+\.\s*/, '')))}</h3><p class="life-description">${esc(i.description)}</p>${expanded && i.cost ? `<div class="life-cost"><span>投入</span><p>${esc(i.cost)}</p></div>` : ''}<div class="life-bottom"><span class="evidence">证据等级 ${esc(i.evidence || '未标注')}</span>${expanded ? link(i.url, '读完整原文 ↗') : '<button class="content-more" data-action="read">展开阅读 →</button>'}</div>${expanded && i.note ? `<details class="life-note" open><summary>原文备注与限制</summary><p>${esc(i.note)}</p></details>` : ''}<div class="attribution">摘自 eternity4719 / HowToLiveBetter · ${link('https://creativecommons.org/licenses/by/4.0/deed.zh-hans', 'CC BY 4.0')}${expanded ? '<br>节选原文，未改写；更多条件及来源见完整条目。' : ''}</div></div>`;
+}
+function readingContent(i, expanded = false) {
+  return `<div class="reading-content">${i.meta ? `<p class="reading-meta">${esc(i.meta)}</p>` : ''}<h3>${link(i.url, esc(i.title))}</h3>${i.description ? `<p class="reading-description">${esc(i.description)}</p>` : ''}<div class="reading-bottom">${expanded ? link(i.url, safeUrl(i.url) ? '打开原文 ↗' : '以上为订阅提供的内容') : '<button class="content-more" data-action="read">展开阅读 →</button>'}</div></div>`;
+}
+function itemList(source, items) {
+  return `<ol class="item-list">${items.map((i, index) => `<li><span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span><div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p>${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}</li>`).join('')}</ol>`;
+}
+function openReader(source) {
+  const state = states.get(source.id);
+  const items = state ? shownItems(source, state) : [];
+  if (!items.length) return;
+  $('#reader-title').textContent = source.name;
+  $('#reader-subtitle').textContent = source.type === 'life' || source.limit === 1 ? subtitles[source.type] : `${query ? '搜索结果 · ' : ''}共 ${items.length} 条`;
+  $('#reader-status').textContent = state.status === 'stale' ? `更新失败，显示旧缓存 · ${state.error}` : '';
+  $('#reader-status').hidden = state.status !== 'stale';
+  $('#reader-content').innerHTML = source.type === 'life' ? lifeContent(items[0], true) : source.limit === 1 ? readingContent(items[0], true) : itemList(source, items);
+  $('#reader-dialog').showModal();
+  $('#reader-content').scrollTop = 0;
+}
 function card(source) {
   const state = states.get(source.id) || { status: 'loading' };
   if (source.type === 'weather') return weatherCard(source, state);
   const data = state.data;
-  const items = ['life', 'poetry'].includes(source.type) ? (state.selected ? [state.selected] : []) : data?.items || [];
-  const shown = query ? items.filter(i => `${i.title} ${i.description}`.toLowerCase().includes(query)) : items;
+  const shown = shownItems(source, state);
   let content = '';
   if (source.type === 'qimai' && !source.url) content = `<div class="empty-card"><span class="empty-glyph">↗</span><h3>接入你的七麦榜单</h3><p>连接有权访问的 JSON 接口，<br>让国内今日 Top 10 来到新标签页。</p><button class="button secondary" data-action="edit">配置数据接口</button><small>当前公开接口限制直接访问</small></div>`;
   else if (state.status === 'loading' && !data) content = `<div class="skeleton" aria-label="正在读取"><i></i><i></i><i></i><i></i><i></i><p>正在读取好内容…</p></div>`;
   else if (state.status === 'error' && !data) content = `<div class="empty-card"><span class="empty-glyph">☁</span><h3>暂时没有连上</h3><p>${esc(state.error)}</p><div class="empty-actions"><button class="button secondary" data-action="refresh">重新读取</button>${source.url ? '<button class="button secondary" data-action="connect">连接数据源</button>' : ''}</div></div>`;
   else if (!shown.length) content = `<div class="empty-card"><span class="empty-glyph">○</span><h3>${query ? '没有匹配的内容' : '暂时没有新内容'}</h3><p>${query ? '试试其他关键词。' : '数据源已连接，等待下一次更新。'}</p></div>`;
   else if (source.type === 'life') {
-    const i = shown[0];
-    content = `<div class="life-content"><div class="life-label"><span>给生活的一点灵感</span><span>↗</span></div><p class="chapter">${esc(i.meta)}</p><h3>${link(i.url, esc(i.title.replace(/^\d+\.\s*/, '')))}</h3><p class="life-description">${esc(i.description)}</p>${i.cost ? `<div class="life-cost"><span>投入</span><p>${esc(i.cost)}</p></div>` : ''}<div class="life-bottom"><span class="evidence">证据等级 ${esc(i.evidence || '未标注')}</span>${link(i.url, '读完整条目 ↗')}</div>${i.note ? `<details class="life-note"><summary>原文备注与限制</summary><p>${esc(i.note)}</p></details>` : ''}<div class="attribution">摘自 eternity4719 / HowToLiveBetter · ${link('https://creativecommons.org/licenses/by/4.0/deed.zh-hans', 'CC BY 4.0')}<br>节选原文，未改写；更多条件及来源见完整条目。</div></div>`;
+    content = lifeContent(shown[0]);
   } else if (source.type === 'poetry') {
     const i = shown[0];
     const comma = i.title.indexOf('，') + 1;
-    content = `<div class="poetry-content" lang="zh-Hans"><div class="poetry-eyebrow" aria-hidden="true">POETRY<span></span></div><figure><blockquote class="poetry-verse"><span>${esc(i.title.slice(0, comma))}</span><span>${esc(i.title.slice(comma))}</span></blockquote><figcaption><span>唐 · ${esc(i.author)}</span><cite>《${esc(i.poemTitle)}》</cite></figcaption></figure><p class="poetry-note">此刻，与诗相逢。</p><svg class="poetry-landscape" viewBox="0 0 280 110" fill="none" aria-hidden="true"><circle cx="204" cy="20" r="10"/><path d="M1 108c38-8 59-27 85-30s37-24 62-14 46-12 72-27 41-4 60 13M79 108c34-6 51-29 78-29s54 23 104 27M125 68l29 10"/></svg></div>`;
+    content = `<div class="poetry-content" lang="zh-Hans"><div class="poetry-eyebrow" aria-hidden="true">POETRY<span></span></div><figure><blockquote class="poetry-verse"><span>${esc(i.title.slice(0, comma))}</span><span>${esc(i.title.slice(comma))}</span></blockquote><figcaption><span>唐 · ${esc(i.author)}</span><cite>《${esc(i.poemTitle)}》</cite></figcaption></figure><svg class="poetry-landscape" viewBox="0 0 280 110" fill="none" aria-hidden="true"><circle cx="204" cy="20" r="10"/><path d="M1 108c38-8 59-27 85-30s37-24 62-14 46-12 72-27 41-4 60 13M79 108c34-6 51-29 78-29s54 23 104 27M125 68l29 10"/></svg></div>`;
   } else if (source.limit === 1) {
-    const i = shown[0];
-    content = `<div class="reading-content"><div class="reading-label"><span>${esc(subtitles[source.type])}</span>${safeUrl(i.url) ? link(i.url, '<span role="img" aria-label="打开原文">↗</span>', 'reading-arrow') : ''}</div>${i.meta ? `<p class="reading-meta">${esc(i.meta)}</p>` : ''}<h3>${link(i.url, esc(i.title))}</h3>${i.description ? `<p class="reading-description">${esc(i.description)}</p>` : ''}${safeUrl(i.url) ? `<div class="reading-bottom">${link(i.url, '阅读全文 ↗')}</div>` : ''}</div>`;
-  } else content = `<ol class="item-list ${source.type === 'github' ? 'github-list' : ''}">${shown.map((i, index) => `<li><span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span><div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p title="${esc(i.description)}">${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}</li>`).join('')}</ol>`;
+    content = readingContent(shown[0]);
+  } else content = `<div class="list-preview">${itemList(source, shown.slice(0, 5))}<button class="content-more" data-action="read">查看全部 ${shown.length} 条 →</button></div>`;
   const stale = state.status === 'stale';
   return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'poetry' ? 'poetry-card' : source.type === 'life' ? 'life-card' : source.limit === 1 ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer"><span class="update-status ${stale ? 'stale' : ''}" title="${data ? new Date(data.fetchedAt).toLocaleString('zh-CN') : ''}"><i></i>${source.type === 'poetry' ? link(source.home, '简体诗选', 'poetry-source') : source.type === 'qimai' && !source.url ? '等待接入' : state.status === 'loading' ? '正在更新…' : `${stale ? '旧缓存 · ' : ''}${age(data?.fetchedAt)}`}</span><div>${source.type === 'poetry' ? '<button class="poetry-shuffle" data-action="shuffle" title="换一句"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.1 7a8 8 0 0 1 13.2-1.1L20 8M4 16l1.7 2.1A8 8 0 0 0 18.9 17"/></svg><span>换一句</span></button>' : `${link(source.home || data?.sourceUrl || source.url, '原站 ↗')}<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button>`}</div></footer></article>`;
 }
@@ -144,6 +166,7 @@ async function moveSource(id, target) {
 }
 function registerEvents() {
   document.querySelectorAll('.close').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
+  $('#reader-dialog').addEventListener('close', () => $('#reader-content').replaceChildren());
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } }));
   $('#add-source').onclick = () => openSource(); $('#manage').onclick = showManager;
   $('#manage-add').onclick = () => { $('#manage-dialog').close(); openSource(); };
@@ -186,6 +209,7 @@ function registerEvents() {
     const source = config.sources.find(s => s.id === button.closest('[data-id]').dataset.id);
     if (button.dataset.action === 'weather-connect') { try { if (await weatherPermission()) await refresh(source, true); else toast('尚未授权天气服务'); } catch (err) { toast(errorMessage(err)); } return; }
     if (button.dataset.action === 'edit') return openSource(source);
+    if (button.dataset.action === 'read') return openReader(source);
     if (button.dataset.action === 'shuffle' && source.type === 'poetry') return refresh(source, true);
     if (button.dataset.action === 'connect') { try { if (await permission(source.url, true)) await refresh(source, true); else toast('未授权，订阅未连接'); } catch (err) { toast(errorMessage(err)); } return; }
     const state = states.get(source.id);

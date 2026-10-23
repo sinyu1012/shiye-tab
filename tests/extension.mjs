@@ -44,12 +44,12 @@ try {
   if (live) {
     assert.ok(statuses.find(s => s.name === '好好生活').life, 'Live life source should succeed');
     assert.ok(statuses.find(s => s.name === 'GitHub').items > 0, 'Live GitHub should succeed');
-    assert.equal(statuses.find(s => s.name === 'App Store').items, 10);
+    assert.equal(statuses.find(s => s.name === 'App Store').items, 5);
   }
   if (!live) {
     await page.locator('.weather-clock').waitFor();
     assert.match(await page.locator('.weather-clock').textContent(), /\d{2}:\d{2}/);
-    assert.equal(await page.locator('.weather-temperature').innerText(), '—等待天气');
+    assert.equal(await page.locator('.weather-temperature').textContent(), '—等待天气');
     const fixture = { current: { time: Math.floor(Date.now() / 1000), temperature_2m: 24, apparent_temperature: 25, relative_humidity_2m: 65, wind_speed_10m: 8, weather_code: 2, is_day: 1 }, daily: { temperature_2m_max: [27], temperature_2m_min: [18] } };
     await ctx.route('https://geocoding-api.open-meteo.com/**', r => r.fulfill({ json: { results: [{ name: '杭州', admin1: '浙江', country: '中国', latitude: 30.27, longitude: 120.15, timezone: 'Asia/Shanghai' }] } }));
     await ctx.route('https://api.open-meteo.com/**', r => r.fulfill({ json: fixture }));
@@ -84,7 +84,7 @@ try {
     await page.reload();
     await page.locator('.weather-card .stale-note').waitFor();
     assert.match(await page.locator('.weather-clock').textContent(), /\d{2}:\d{2}/);
-    assert.equal(await page.locator('.weather-temperature').innerText(), '—等待天气');
+    assert.equal(await page.locator('.weather-temperature').textContent(), '—等待天气');
     // Exercise the denial path without an unautomatable native permission prompt.
     await page.evaluate(() => { window.originalWeatherRequest = chrome.permissions.request; chrome.permissions.request = async () => false; });
     await page.locator('.weather-retry').click();
@@ -123,8 +123,19 @@ try {
   }));
   assert.equal(layout.toolbar, 64);
   assert.equal(layout.boardTop, 88);
-  assert.equal(layout.cardHeight, 520);
+  assert.equal(layout.cardHeight, 320);
   log.push({ compactLayout: layout });
+  assert.equal(await page.locator('[data-id="apple"] .item-list li').count(), 5);
+  await page.locator('[data-id="apple"] [data-action="read"]').click();
+  assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#reader-dialog').evaluate(el => el.open), false);
+  assert.equal(await page.locator('[data-id="apple"] [data-action="read"]').evaluate(el => el === document.activeElement), true);
+  await page.locator('.life-card [data-action="read"]').click();
+  assert.ok(await page.locator('#reader-content .life-cost').isVisible());
+  assert.equal(await page.locator('#reader-content a').first().getAttribute('target'), '_blank');
+  await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+  log.push('Compact cards show five ranking rows; reader retains all ten, life details, original links and Escape focus restoration.');
   await page.screenshot({ path: `artifacts/${live ? 'live' : 'tested'}-dashboard.png`, fullPage: true });
   await page.getByRole('button', { name: '开发', exact: true }).click();
   assert.equal(await page.locator('.card').count(), 1);
@@ -199,6 +210,9 @@ try {
   await page.locator('#theme').selectOption('light');
   await page.locator('#columns').selectOption('3');
   await page.locator('#settings-dialog .close').click();
+  await page.reload();
+  await page.locator('.life-content h3').waitFor();
+  assert.equal(await page.locator('#board').getAttribute('data-columns'), '3', 'Manual columns survive reloading after migration');
   await page.getByRole('button', { name: '管理订阅', exact: true }).click();
   await page.getByRole('button', { name: '上移 GitHub', exact: true }).click();
   await page.getByRole('button', { name: '上移 GitHub', exact: true }).click();
@@ -280,13 +294,13 @@ try {
     assert.ok(await page.locator('.poetry-content figcaption').textContent());
     log.push('Existing configuration retained; poetry added through UI and persisted across reload.');
   }
-  for (const width of [1920, 1024, 768, 390]) {
+  for (const width of [1920, 1600, 1440, 1101, 1024, 768, 691, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No horizontal overflow at ${width}px`);
     assert.ok(await page.locator('.weather-card .card-content').evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight), `Weather metrics fit at ${width}px`);
     assert.ok(await verse.evaluate(el => el.scrollWidth <= el.clientWidth), `Poetry fits at ${width}px`);
   }
-  log.push('1920, 1024, 768, 390px responsive layouts have no horizontal overflow.');
+  log.push('1920, 1600, 1440, 1101, 1024, 768, 691, 390, 320px responsive layouts have no horizontal overflow.');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'artifacts/mobile-dashboard.png', fullPage: true });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow');
@@ -303,6 +317,89 @@ try {
     await page.locator('.weather-card').waitFor();
     assert.equal(await page.locator('.weather-card').count(), 1, 'Old saved configuration receives one weather card');
     log.push('Weather clock tick, empty-cache failure, permission denial, visible metrics, one-time migration and persistent removal verified.');
+  }
+  if (!live) {
+    // Use eight isolated fixture sources to verify the first screen and full reader.
+    const longText = Array.from({ length: 12 }, (_, i) => `第 ${i + 1} 段：把值得关注的产品更新、开发工具和生活灵感放在一起。卡片只展示预览，展开后可以继续阅读数据源提供的全部内容。`).join('\n\n') + '\n\n完整正文结束标记';
+    await ctx.route('https://github.com/shiye-compact-fixture/**', route => {
+      if (route.request().url().endsWith('/rss')) return route.fulfill({ contentType: 'application/xml', body: `<rss><channel><item><title>每日速览：值得关注的产品、工具与灵感</title><description><![CDATA[${longText}]]></description><pubDate>Fri, 23 Oct 2026 09:00:00 GMT</pubDate></item></channel></rss>` });
+      return route.fulfill({ json: { items: Array.from({ length: 10 }, (_, i) => ({ title: `示例条目 ${i + 1} · 每天发现一点新内容`, description: longText, url: `https://example.com/items/${i + 1}`, meta: '今日更新' })) } });
+    });
+    await ctx.route('https://github.com/trending?since=weekly', route => route.fulfill({ body: Array.from({ length: 10 }, (_, i) => `<article class="Box-row"><h2><a href="/sample/project-${i + 1}">sample / project-${i + 1}</a></h2><p>Repository description ${i + 1}</p><span>${1200 - i * 100} stars this week</span></article>`).join('') }));
+    await page.evaluate(async () => {
+      const { cloneDefaults } = await import('./src/model.js');
+      const { saveConfig } = await import('./src/storage.js');
+      const c = cloneDefaults();
+      c.theme = 'light';
+      c.sources[0].location = { name: '杭州', latitude: 30.27, longitude: 120.15, timezone: 'Asia/Shanghai' };
+      const custom = (id, type, name, limit) => ({ id, type, name, category: type === 'qimai' ? '应用' : '订阅', url: `https://github.com/shiye-compact-fixture/${id}`, home: 'https://example.com/', limit, refreshMinutes: 60 });
+      const [weather, life, github, poetry, apple] = c.sources;
+      c.sources = [weather, custom('rss', 'rss', '每日速览 · 示例', 1), life, poetry, apple, github, custom('json', 'json', '灵感清单 · 示例', 10), custom('qimai', 'qimai', '榜单接口 · 示例', 10)];
+      await saveConfig(c);
+      await chrome.storage.local.remove(c.sources.map(s => `cache:${s.id}`));
+    });
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll('.card').length === 8 && !document.querySelector('.skeleton') && ![...document.querySelectorAll('.update-status')].some(el => el.textContent.includes('正在更新')));
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [1920, 1600, 1440, 1101, 1024, 768, 691, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      const geometry = await page.evaluate(() => ({
+        columns: getComputedStyle(document.querySelector('#board')).gridTemplateColumns.split(' ').length,
+        horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+        cards: [...document.querySelectorAll('.card')].map(el => ({ height: el.getBoundingClientRect().height, bottom: el.getBoundingClientRect().bottom })),
+        previewsFit: [...document.querySelectorAll('.card-content')].every(el => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth),
+        readersVisible: [...document.querySelectorAll('.card [data-action="read"]')].every(el => el.getBoundingClientRect().bottom <= el.closest('.card').querySelector('.card-footer').getBoundingClientRect().top),
+      }));
+      assert.equal(geometry.columns, width >= 1600 ? 4 : width > 1100 ? 3 : width > 690 ? 2 : 1, `Adaptive columns at ${width}px`);
+      assert.equal(geometry.horizontalOverflow, false, `No overflow at ${width}px`);
+      assert.ok(geometry.cards.every(c => c.height === 320), `Every card remains 320px at ${width}px`);
+      assert.equal(geometry.previewsFit, true, `Previews fit without internal scrolling at ${width}px`);
+      assert.equal(geometry.readersVisible, true, `Reader entries remain visible at ${width}px`);
+      if (width >= 1600) assert.ok(geometry.cards.every(c => c.bottom <= 900), 'All eight cards fit in the first viewport');
+    }
+    await page.setViewportSize({ width: 1920, height: 900 });
+    await page.screenshot({ path: 'artifacts/compact-wide-light.png', animations: 'disabled' });
+    await page.locator('[data-id="rss"] [data-action="read"]').click();
+    assert.equal(await page.locator('#reader-content .reading-description').textContent(), longText, 'RSS without a link retains more than 500 characters and all paragraphs');
+    await page.screenshot({ path: 'artifacts/compact-reader.png', animations: 'disabled' });
+    await page.keyboard.press('Escape');
+    await page.locator('[data-id="json"] [data-action="read"]').click();
+    assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
+    assert.equal(await page.locator('#reader-content .item-body p').last().textContent(), longText, 'JSON descriptions are not truncated');
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+    await page.locator('[data-id="qimai"] [data-action="read"]').click();
+    assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
+    await page.keyboard.press('Escape');
+    await page.locator('#search').fill('条目 10');
+    await page.locator('[data-id="json"] [data-action="read"]').click();
+    assert.equal(await page.locator('#reader-content .item-list li').count(), 1, 'Reader respects search results beyond the first five rows');
+    await page.keyboard.press('Escape');
+    await page.locator('#search').fill('');
+    await page.getByRole('button', { name: '外观与设置' }).click();
+    await page.locator('#theme').selectOption('dark');
+    await page.locator('#settings-dialog .close').click();
+    await page.screenshot({ path: 'artifacts/compact-wide-dark.png', animations: 'disabled' });
+    await page.getByRole('button', { name: '外观与设置' }).click();
+    await page.locator('#theme').selectOption('light');
+    await page.locator('#settings-dialog .close').click();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: 'artifacts/compact-desktop.png', animations: 'disabled' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: 'artifacts/compact-mobile.png', fullPage: true, animations: 'disabled' });
+    await page.locator('[data-id="rss"] [data-action="read"]').click();
+    await page.locator('#reader-content').evaluate(el => { el.scrollTop = el.scrollHeight; });
+    assert.ok(await page.locator('#reader-content').evaluate(el => el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1), 'Full article can scroll to its end on mobile');
+    assert.ok(await page.locator('#reader-dialog').evaluate(el => el.getBoundingClientRect().left >= 0 && el.getBoundingClientRect().right <= innerWidth), 'Mobile reader stays within the viewport');
+    await page.screenshot({ path: 'artifacts/compact-mobile-reader.png', animations: 'disabled' });
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+    // Check the upgrade and a later explicit choice independently of fresh defaults.
+    await page.evaluate(async () => {
+      const { getConfig, saveConfig, remove } = await import('./src/storage.js');
+      const c = await getConfig(); c.columns = 3; await saveConfig(c); await remove('compact-layout-introduced');
+    });
+    await page.reload();
+    await page.waitForSelector('#board[data-columns="4"]');
+    log.push('Eight fixture cards fit the wide first viewport; all 320px cards and reader actions fit at nine widths. Full RSS/JSON text, all ranking rows, filtered reader, themes and one-time column migration verified.');
   }
   assert.deepEqual(failures, []);
   log.push('390px layout has no horizontal overflow; no uncaught page errors.');
