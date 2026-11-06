@@ -137,3 +137,44 @@ test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', a
     assert.equal(typeof data.fetchedAt, 'number');
   } finally { delete globalThis.localStorage; }
 });
+
+
+test('导出载荷保持 v1 配置格式，并携带清洗后的网址书签', async () => {
+  const { buildExportPayload, validateConfig } = await import('../src/model.js');
+  const payload = buildExportPayload(cloneDefaults(), [
+    { title: 'MDN', url: 'developer.mozilla.org' },
+    { title: '危险', url: 'javascript:alert(1)' },
+    { title: '重复', url: 'https://developer.mozilla.org/' },
+    null,
+  ]);
+  assert.deepEqual(Object.keys(payload).sort(), ['bookmarks', 'columns', 'sources', 'theme', 'version']);
+  assert.equal(payload.version, 1);
+  assert.equal(payload.sources.length, 5);
+  assert.deepEqual(payload.bookmarks.map(b => b.url), ['https://developer.mozilla.org/']);
+  // An older build validates only version/sources and ignores unknown keys.
+  assert.doesNotThrow(() => validateConfig(payload));
+  assert.equal(validateConfig(payload).sources.length, 5);
+  assert.equal('bookmarks' in validateConfig(payload), false);
+  assert.equal(JSON.parse(JSON.stringify(payload)).bookmarks.length, 1, 'payload survives a JSON round trip');
+});
+
+test('导入载荷兼容旧格式、新格式与脏字段', async () => {
+  const { parseImportPayload, BOOKMARKS_MAX } = await import('../src/model.js');
+  const legacy = cloneDefaults();
+  assert.equal(parseImportPayload(legacy).bookmarks, null, 'legacy file: leave local bookmarks alone');
+  assert.equal(parseImportPayload(legacy).config.version, 1);
+  assert.equal(parseImportPayload({ ...legacy, bookmarks: 'oops' }).bookmarks, null);
+  assert.equal(parseImportPayload({ ...legacy, bookmarks: { 0: 'x' } }).bookmarks, null);
+  const dirty = parseImportPayload({ ...legacy, bookmarks: [
+    { title: '', url: '' },
+    { title: 'A', url: 'example.com' },
+    { title: 'B', url: 'https://example.com/' },
+    { title: 'X', url: 'data:text/html,x' },
+    { title: '带账密', url: 'https://u:p@example.org/' },
+  ] });
+  assert.deepEqual(dirty.bookmarks.map(b => b.url), ['https://example.com/'], 'invalid, unsafe and duplicate URLs are dropped');
+  assert.deepEqual(parseImportPayload({ ...legacy, bookmarks: [] }).bookmarks, [], 'empty array is an explicit empty state');
+  const many = Array.from({ length: 205 }, (_, i) => ({ title: `t${i}`, url: `https://e.example/${i}` }));
+  assert.equal(parseImportPayload({ ...legacy, bookmarks: many }).bookmarks.length, BOOKMARKS_MAX);
+  assert.throws(() => parseImportPayload({ ...legacy, version: 2 }), /配置格式无效/);
+});

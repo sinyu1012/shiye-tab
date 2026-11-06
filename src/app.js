@@ -1,4 +1,4 @@
-import { DEFAULTS, cloneDefaults, esc, safeUrl, sourceUrl, validateConfig, randomOther, configKey, validateBookmarkItem } from './model.js';
+import { DEFAULTS, cloneDefaults, esc, safeUrl, sourceUrl, validateConfig, randomOther, configKey, validateBookmarkItem, buildExportPayload, parseImportPayload } from './model.js';
 import { read, write, remove, getConfig, saveConfig, permission, extension, getBookmarks, saveBookmarks, addBookmark, updateBookmark, removeBookmark } from './storage.js';
 import { loadSource } from './sources.js';
 import { weatherCard, updateClocks, weatherPermission, searchCities } from './weather.js';
@@ -330,21 +330,32 @@ function registerEvents() {
   $('#settings').onclick = () => { $('#theme').value = config.theme; $('#columns').value = config.columns; $('#settings-dialog').showModal(); };
   $('#theme').onchange = async e => { config.theme = e.target.value; await persist(); applyAppearance(); };
   $('#columns').onchange = async e => { config.columns = Number(e.target.value); await persist(); applyAppearance(); };
-  $('#export').onclick = async () => { const payload = { ...config, bookmarks: await getBookmarks() }; const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'shiye-tab-config.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); toast('配置与网址书签已导出，请妥善保管私有订阅地址'); };
+  $('#export').onclick = async () => {
+    try {
+      const payload = buildExportPayload(config, await getBookmarks());
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'shiye-tab-config.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast(`已导出配置与 ${payload.bookmarks.length} 条网址书签，请妥善保管私有订阅地址`);
+    } catch (err) { toast(`导出失败：${errorMessage(err)}`); }
+  };
   $('#import').onclick = () => $('#import-file').click();
   $('#import-file').onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
     try {
       if (file.size > 1024 * 1024) throw new Error('配置文件不能超过 1 MiB。');
-      const payload = JSON.parse(await file.text());
-      const next = validateConfig(payload);
+      const { config: next, bookmarks } = parseImportPayload(JSON.parse(await file.text()));
       await Promise.allSettled([...inFlight.values()]);
+      // Write bookmarks before swapping config: a storage error must not leave a half-imported board.
+      if (bookmarks) await saveBookmarks(bookmarks);
       const oldIds = config.sources.map(s => s.id); config = next; await persist();
-      if (Array.isArray(payload.bookmarks)) await saveBookmarks(payload.bookmarks);
       bookmarkTotal = (await getBookmarks()).length;
       for (const id of oldIds) { await remove(`cache:${id}`); await remove(`last:${id}`); }
       states.clear(); category = '全部'; query = ''; $('#search').value = ''; render(); $('#settings-dialog').close();
-      void Promise.allSettled(config.sources.map(s => refresh(s))); toast('配置已导入，新站点请在卡片上授权');
+      void Promise.allSettled(config.sources.map(s => refresh(s)));
+      toast(bookmarks ? `配置已导入，恢复 ${bookmarks.length} 条网址书签；新站点请在卡片上授权`
+        : '配置已导入，现有书签保持不变；新站点请在卡片上授权');
     } catch (err) { toast(`导入失败：${errorMessage(err)}`); } finally { e.target.value = ''; }
   };
 }
