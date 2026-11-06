@@ -59,3 +59,81 @@ test('天气城市配置校验、缓存隔离与数据解析', async () => {
   assert.equal(clockParts('Asia/Shanghai', date).hour, '00');
   assert.match(clockParts('Asia/Shanghai', date).date, /1月2日/);
 });
+
+
+test('网址书签类型、URL 规范化与字段清洗', async () => {
+  const { TYPES, validateConfig, validateBookmarkItem, normalizeBookmarkUrl, BOOKMARKS_MAX } = await import('../src/model.js');
+  assert.ok(TYPES.includes('bookmark'));
+  assert.equal(validateConfig(cloneDefaults()).sources.length, 5);
+  const c = cloneDefaults();
+  c.sources.push({ id: 'links', type: 'bookmark', name: '我的书签', category: '导航', limit: 12, refreshMinutes: 60 });
+  const source = validateConfig(c).sources.at(-1);
+  assert.equal(source.type, 'bookmark');
+  assert.equal(source.limit, 12);
+  assert.equal(source.url, '');
+  assert.equal(normalizeBookmarkUrl('example.com'), 'https://example.com/');
+  assert.equal(normalizeBookmarkUrl('localhost:3000/docs'), 'https://localhost:3000/docs');
+  assert.equal(normalizeBookmarkUrl('https://example.com/a?x=1&y=2'), 'https://example.com/a?x=1&y=2');
+  for (const bad of ['javascript:alert(1)', 'data:text/html,x', 'chrome://settings', 'https://user:pw@example.org', '']) {
+    assert.equal(normalizeBookmarkUrl(bad), '');
+  }
+  assert.equal(validateBookmarkItem(null), null);
+  assert.equal(validateBookmarkItem({ title: '没有网址' }), null);
+  const item = validateBookmarkItem({ title: '  MDN  ', url: 'developer.mozilla.org', description: 'x'.repeat(1500), createdAt: 'bad', updatedAt: 1 });
+  assert.equal(item.title, 'MDN');
+  assert.equal(item.url, 'https://developer.mozilla.org/');
+  assert.equal(item.description.length, 1000);
+  assert.equal(item.id, 'https://developer.mozilla.org/');
+  assert.equal(typeof item.createdAt, 'number');
+  assert.equal(item.updatedAt, 1);
+  assert.equal(validateBookmarkItem({ url: 'https://example.org' }).title, 'example.org');
+  assert.equal(BOOKMARKS_MAX, 200);
+});
+
+test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', async () => {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => store.has(k) ? store.get(k) : null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k),
+  };
+  try {
+    const { getBookmarks, saveBookmarks, addBookmark, updateBookmark, removeBookmark } = await import('../src/storage.js');
+    const { loadSource } = await import('../src/sources.js');
+    assert.deepEqual(await getBookmarks(), []);
+    const first = await addBookmark({ title: 'MDN', url: 'developer.mozilla.org', description: 'Web 文档' });
+    assert.equal(first.length, 1);
+    const id = first[0].id;
+    assert.ok(id && id !== first[0].url, 'new bookmarks get a stable id independent of the URL');
+    await assert.rejects(() => addBookmark({ title: '重复', url: 'https://developer.mozilla.org/' }), /已经/);
+    assert.equal((await addBookmark({ title: '示例站', url: 'https://example.com/' })).length, 2);
+    const updated = await updateBookmark(id, { title: 'MDN 中文', url: 'https://developer.mozilla.org/zh-CN/', description: '中文文档' });
+    const changed = updated.find(b => b.id === id);
+    assert.equal(changed.title, 'MDN 中文');
+    assert.equal(changed.url, 'https://developer.mozilla.org/zh-CN/');
+    assert.equal(changed.description, '中文文档');
+    assert.equal(changed.createdAt, first[0].createdAt);
+    assert.ok(changed.updatedAt >= first[0].updatedAt);
+    await assert.rejects(() => updateBookmark(id, { url: 'https://example.com/' }), /已经/);
+    await assert.rejects(() => updateBookmark(id, { url: 'javascript:alert(1)' }), /有效/);
+    const removed = await removeBookmark(id);
+    assert.deepEqual(removed.map(b => b.title), ['示例站']);
+    store.set('bookmarks', JSON.stringify([
+      { title: '脏数据', url: 'data:text/html,x' }, null, 7,
+      { title: 'A', url: 'https://a.example/' }, { title: 'A2', url: 'https://a.example/' },
+    ]));
+    assert.deepEqual((await getBookmarks()).map(b => b.title), ['A'], 'invalid and duplicate entries are dropped on read');
+    const many = Array.from({ length: 205 }, (_, i) => ({ title: `条目 ${i}`, url: `https://example.com/${i}` }));
+    assert.equal((await saveBookmarks(many)).length, 200);
+    assert.equal((await getBookmarks()).length, 200);
+    await assert.rejects(() => addBookmark({ title: '溢出', url: 'https://overflow.example/' }), /最多/);
+    await saveBookmarks([
+      { title: 'A', url: 'https://a.example/' },
+      { title: 'B', url: 'https://b.example/' },
+      { title: 'C', url: 'https://c.example/' },
+    ]);
+    const data = await loadSource({ type: 'bookmark', limit: 2 });
+    assert.deepEqual(data.items.map(i => i.title), ['A', 'B']);
+    assert.equal(typeof data.fetchedAt, 'number');
+  } finally { delete globalThis.localStorage; }
+});
