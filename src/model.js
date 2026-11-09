@@ -1,6 +1,8 @@
 export const LIFE_REPO = 'https://github.com/eternity4719/HowToLiveBetter';
 export const QIMAI_HOME = 'https://www.qimai.cn/rank/index/brand/free/country/cn/genre/36/device/iphone';
-export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json'];
+export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json', 'bookmark'];
+export const BOOKMARKS_KEY = 'bookmarks';
+export const BOOKMARKS_MAX = 200;
 export const DEFAULTS = {
   version: 1, theme: 'system', columns: 4,
   sources: [
@@ -39,6 +41,60 @@ export function atPath(value, path = '') {
   }, value);
 }
 const string = (value, fallback = '', max = 300) => typeof value === 'string' ? value.trim().slice(0, max) : fallback;
+export function normalizeBookmarkUrl(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '';
+  // A bare host (example.com or localhost:3000) gains https; real schemes pass through
+  // so that javascript:, data: and chrome: are still rejected by safeUrl().
+  const scheme = raw.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  const hasScheme = Boolean(scheme) && !/^\d+(?:[/?#]|$)/.test(raw.slice(scheme[0].length));
+  return safeUrl(hasScheme ? raw : `https://${raw}`);
+}
+export function validateBookmarkItem(input) {
+  if (!input || typeof input !== 'object') return null;
+  const url = normalizeBookmarkUrl(input.url);
+  if (!url) return null;
+  const now = Date.now();
+  return { id: string(input.id, '', 200) || url,
+    title: string(input.title, '', 200) || new URL(url).hostname,
+    url, description: string(input.description, '', 1000),
+    createdAt: Number.isFinite(input.createdAt) ? input.createdAt : now,
+    updatedAt: Number.isFinite(input.updatedAt) ? input.updatedAt : now };
+}
+// The backup field deliberately shares the storage key so both always agree.
+export const BOOKMARKS_FIELD = BOOKMARKS_KEY;
+export function cleanBookmarks(items) {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set(), ids = new Set();
+  const clean = [];
+  for (const item of items) {
+    const valid = validateBookmarkItem(item);
+    if (!valid || seen.has(valid.url)) continue;
+    const id = valid.id.slice(0, 200);
+    valid.id = id;
+    for (let suffix = 2; ids.has(valid.id); suffix++) {
+      const ending = `-${suffix}`;
+      valid.id = `${id.slice(0, 200 - ending.length)}${ending}`;
+    }
+    ids.add(valid.id);
+    seen.add(valid.url);
+    clean.push(valid);
+    if (clean.length >= BOOKMARKS_MAX) break;
+  }
+  return clean;
+}
+export function buildExportPayload(config, bookmarks) {
+  // Preserve every card. Older builds can ignore bookmarks, but reject bookmark sources.
+  return { ...validateConfig(config), [BOOKMARKS_FIELD]: cleanBookmarks(bookmarks) };
+}
+// bookmarks === null: legacy file without the field -> keep local bookmarks untouched.
+// bookmarks === []  : explicit empty state -> replace local bookmarks.
+export function parseImportPayload(payload) {
+  return {
+    config: validateConfig(payload),
+    bookmarks: Array.isArray(payload?.[BOOKMARKS_FIELD]) ? cleanBookmarks(payload[BOOKMARKS_FIELD]) : null,
+  };
+}
 export function validateConfig(input) {
   if (!input || input.version !== 1 || !Array.isArray(input.sources) || input.sources.length > 40) throw new Error('配置格式无效，或超过 40 个数据源。');
   const ids = new Set();
@@ -84,5 +140,6 @@ export function configKey(source) {
   if (source.type === 'life') key.push('all-chapters-v1');
   // Old feed caches truncated descriptions; refetch the full text for the reader.
   if (['rss', 'json', 'qimai'].includes(source.type)) key.push('full-description-v2');
+  if (source.type === 'bookmark') key.push('bookmarks-v2');
   return JSON.stringify(key);
 }
