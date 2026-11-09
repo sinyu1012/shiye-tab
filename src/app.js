@@ -1,68 +1,21 @@
-import { DEFAULTS, cloneDefaults, esc, safeUrl, sourceUrl, validateConfig, randomOther, configKey, validateBookmarkItem, buildExportPayload, parseImportPayload } from './model.js';
-import { read, write, remove, getConfig, saveConfig, permission, extension, getBookmarks, saveBookmarks, addBookmark, updateBookmark, removeBookmark } from './storage.js';
+import { DEFAULTS, cloneDefaults, esc, safeUrl, sourceUrl, validateConfig, randomOther, configKey } from './model.js';
+import { read, write, remove, getConfig, saveConfig, permission, extension } from './storage.js';
 import { loadSource } from './sources.js';
 import { weatherCard, updateClocks, weatherPermission, searchCities } from './weather.js';
 const $ = s => document.querySelector(s);
 let weatherLocation = null, weatherResults = [], citySearchVersion = 0;
 const states = new Map(); const inFlight = new Map();
 let config, category = '全部', query = '', editing = null, dragId = null, toastTimer;
-let bookmarkTotal = 0, bookmarkEditingId = null, readerSource = null;
 const icons = {
   life: '✳', poetry: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4C10 3 4 7 4 13a7 7 0 0 0 7 7c6 0 9-6 9-16Z"/><path d="M4 22 17 7M8 17V10m0 7h7"/></svg>', weather: '◷',
   github: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.86c-2.78.61-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.81a9.6 9.6 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>',
   apple: '<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3 12 18M15 3 3 21M4 15h16"/></svg>',
-  qimai: '七', rss: '◔', json: '{ }', bookmark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v16l-5-3.4L7 20Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  qimai: '七', rss: '◔', json: '{ }',
 };
-const subtitles = { weather: '时间与天气', poetry: '唐诗 · 随机一句', life: 'HowToLiveBetter', github: '本周趋势', apple: '中国 · iPhone 免费榜', qimai: '中国 · iPhone 免费总榜', rss: '订阅更新', json: '结构化数据', bookmark: '自定义网址 · 本机保存' };
+const subtitles = { weather: '时间与天气', poetry: '唐诗 · 随机一句', life: 'HowToLiveBetter', github: '本周趋势', apple: '中国 · iPhone 免费榜', qimai: '中国 · iPhone 免费总榜', rss: '订阅更新', json: '结构化数据' };
 const link = (url, label, cls = '') => safeUrl(url) ? `<a class="${cls}" href="${esc(safeUrl(url))}" target="_blank" rel="noopener noreferrer">${label}</a>` : `<span class="${cls}">${label}</span>`;
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 3800); }
 function errorMessage(err) { return ['TimeoutError', 'AbortError'].includes(err.name) ? '连接超时，请稍后重试。' : err.message === 'Failed to fetch' ? '网络连接失败，请检查网络与站点访问权限。' : err.message; }
-function bookmarkActions(item) {
-  return `<span class="bookmark-actions"><button type="button" class="icon-button" data-action="bookmark-edit" data-bookmark-id="${esc(item.id)}" aria-label="编辑 ${esc(item.title)}" title="编辑网址">✎</button><button type="button" class="icon-button danger" data-action="bookmark-delete" data-bookmark-id="${esc(item.id)}" aria-label="删除 ${esc(item.title)}" title="删除网址">×</button></span>`;
-}
-const BOOKMARK_ACTIONS = ['bookmark-add', 'bookmark-edit', 'bookmark-delete'];
-async function openBookmarkDialog(id = null) {
-  const item = id ? (await getBookmarks()).find(b => b.id === id) : null;
-  if (id && !item) { toast('找不到这条网址，可能已被删除'); return; }
-  bookmarkEditingId = item?.id ?? null;
-  const form = $('#bookmark-form'); form.reset();
-  $('#bookmark-error').textContent = '';
-  $('#bookmark-title').textContent = item ? '编辑网址' : '添加网址';
-  $('#save-bookmark').textContent = item ? '保存修改' : '添加网址';
-  if (item) {
-    form.elements.title.value = item.title;
-    form.elements.url.value = item.url;
-    form.elements.note.value = item.description;
-  }
-  $('#bookmark-dialog').showModal();
-}
-async function refreshBookmarkCards() {
-  for (const source of config.sources.filter(s => s.type === 'bookmark')) {
-    if (inFlight.has(source.id)) await inFlight.get(source.id);
-    states.delete(source.id); await refresh(source, true);
-  }
-  bookmarkTotal = (await getBookmarks()).length;
-  if (readerSource?.type === 'bookmark' && $('#reader-dialog').open) {
-    const state = states.get(readerSource.id);
-    const items = state ? shownItems(readerSource, state) : [];
-    if (!items.length) $('#reader-dialog').close();
-    else $('#reader-content').innerHTML = readerMarkup(readerSource, items);
-  }
-  render();
-}
-async function handleBookmarkAction(button) {
-  const action = button.dataset.action;
-  if (!BOOKMARK_ACTIONS.includes(action)) return false;
-  if (action === 'bookmark-add') { await openBookmarkDialog(); return true; }
-  const id = button.dataset.bookmarkId;
-  if (action === 'bookmark-edit') { await openBookmarkDialog(id); return true; }
-  const target = (await getBookmarks()).find(b => b.id === id);
-  if (!target) { toast('找不到这条网址，可能已被删除'); return true; }
-  await removeBookmark(id);
-  await refreshBookmarkCards();
-  toast(`已删除「${target.title}」`);
-  return true;
-}
 async function persist() { await saveConfig(config); }
 function applyAppearance() { document.documentElement.dataset.theme = config.theme; $('#board').dataset.columns = config.columns; }
 function age(time) {
@@ -87,22 +40,17 @@ function readingContent(i, expanded = false) {
   return `<div class="reading-content">${i.meta ? `<p class="reading-meta">${esc(i.meta)}</p>` : ''}<h3>${link(i.url, esc(i.title))}</h3>${i.description ? `<p class="reading-description">${esc(i.description)}</p>` : ''}<div class="reading-bottom">${expanded ? link(i.url, safeUrl(i.url) ? '打开原文 ↗' : '以上为订阅提供的内容') : '<button class="content-more" data-action="read">展开阅读 →</button>'}</div></div>`;
 }
 function itemList(source, items) {
-  return `<ol class="item-list">${items.map((i, index) => `<li><span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span><div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p>${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}${source.type === 'bookmark' ? bookmarkActions(i) : ''}</li>`).join('')}</ol>`;
-}
-function readerMarkup(source, items) {
-  const content = source.type === 'life' ? lifeContent(items[0], true) : source.limit === 1 ? readingContent(items[0], true) : itemList(source, items);
-  return content + (source.type === 'bookmark' ? '<div class="bookmark-reader-actions"><button class="button secondary" data-action="bookmark-add">＋ 添加网址</button></div>' : '');
+  return `<ol class="item-list">${items.map((i, index) => `<li><span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span><div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p>${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}</li>`).join('')}</ol>`;
 }
 function openReader(source) {
   const state = states.get(source.id);
   const items = state ? shownItems(source, state) : [];
   if (!items.length) return;
-  readerSource = source;
   $('#reader-title').textContent = source.name;
   $('#reader-subtitle').textContent = source.type === 'life' || source.limit === 1 ? subtitles[source.type] : `${query ? '搜索结果 · ' : ''}共 ${items.length} 条`;
   $('#reader-status').textContent = state.status === 'stale' ? `更新失败，显示旧缓存 · ${state.error}` : '';
   $('#reader-status').hidden = state.status !== 'stale';
-  $('#reader-content').innerHTML = readerMarkup(source, items);
+  $('#reader-content').innerHTML = source.type === 'life' ? lifeContent(items[0], true) : source.limit === 1 ? readingContent(items[0], true) : itemList(source, items);
   $('#reader-dialog').showModal();
   $('#reader-content').scrollTop = 0;
 }
@@ -115,7 +63,6 @@ function card(source) {
   if (source.type === 'qimai' && !source.url) content = `<div class="empty-card"><span class="empty-glyph">↗</span><h3>接入你的七麦榜单</h3><p>连接有权访问的 JSON 接口，<br>让国内今日 Top 10 来到新标签页。</p><button class="button secondary" data-action="edit">配置数据接口</button><small>当前公开接口限制直接访问</small></div>`;
   else if (state.status === 'loading' && !data) content = `<div class="skeleton" aria-label="正在读取"><i></i><i></i><i></i><i></i><i></i><p>正在读取好内容…</p></div>`;
   else if (state.status === 'error' && !data) content = `<div class="empty-card"><span class="empty-glyph">☁</span><h3>暂时没有连上</h3><p>${esc(state.error)}</p><div class="empty-actions"><button class="button secondary" data-action="refresh">重新读取</button>${source.url ? '<button class="button secondary" data-action="connect">连接数据源</button>' : ''}</div></div>`;
-  else if (!shown.length && source.type === 'bookmark') content = `<div class="empty-card"><span class="empty-glyph">☆</span><h3>还没有网址</h3><p>把常用的网站收进这张卡片，<br>点开就能直达。</p><div class="empty-actions"><button class="button secondary" data-action="bookmark-add">＋ 添加网址</button></div><small>只保存在本机 · 不联网</small></div>`;
   else if (!shown.length) content = `<div class="empty-card"><span class="empty-glyph">○</span><h3>${query ? '没有匹配的内容' : '暂时没有新内容'}</h3><p>${query ? '试试其他关键词。' : '数据源已连接，等待下一次更新。'}</p></div>`;
   else if (source.type === 'life') {
     content = lifeContent(shown[0]);
@@ -127,16 +74,13 @@ function card(source) {
     content = readingContent(shown[0]);
   } else content = `<div class="list-preview">${itemList(source, shown.slice(0, 5))}<button class="content-more" data-action="read">查看全部 ${shown.length} 条 →</button></div>`;
   const stale = state.status === 'stale';
-  const homeLink = source.type === 'bookmark' ? `<button class="bookmark-add-link" data-action="bookmark-add">＋ 添加网址</button><span class="bookmark-total">${bookmarkTotal} 条</span>` : link(source.home || data?.sourceUrl || source.url, '原站 ↗');
-  return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'poetry' ? 'poetry-card' : source.type === 'life' ? 'life-card' : source.limit === 1 ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer"><span class="update-status ${stale ? 'stale' : ''}" title="${data ? new Date(data.fetchedAt).toLocaleString('zh-CN') : ''}"><i></i>${source.type === 'poetry' ? link(source.home, '简体诗选', 'poetry-source') : source.type === 'qimai' && !source.url ? '等待接入' : state.status === 'loading' ? '正在更新…' : `${stale ? '旧缓存 · ' : ''}${age(data?.fetchedAt)}`}</span><div>${source.type === 'poetry' ? '<button class="poetry-shuffle" data-action="shuffle" title="换一句"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.1 7a8 8 0 0 1 13.2-1.1L20 8M4 16l1.7 2.1A8 8 0 0 0 18.9 17"/></svg><span>换一句</span></button>' : `${homeLink}<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button>`}</div></footer></article>`;
+  return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'poetry' ? 'poetry-card' : source.type === 'life' ? 'life-card' : source.limit === 1 ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer"><span class="update-status ${stale ? 'stale' : ''}" title="${data ? new Date(data.fetchedAt).toLocaleString('zh-CN') : ''}"><i></i>${source.type === 'poetry' ? link(source.home, '简体诗选', 'poetry-source') : source.type === 'qimai' && !source.url ? '等待接入' : state.status === 'loading' ? '正在更新…' : `${stale ? '旧缓存 · ' : ''}${age(data?.fetchedAt)}`}</span><div>${source.type === 'poetry' ? '<button class="poetry-shuffle" data-action="shuffle" title="换一句"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.1 7a8 8 0 0 1 13.2-1.1L20 8M4 16l1.7 2.1A8 8 0 0 0 18.9 17"/></svg><span>换一句</span></button>' : `${link(source.home || data?.sourceUrl || source.url, '原站 ↗')}<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button>`}</div></footer></article>`;
 }
 function render() {
-  const scrollY = window.scrollY;
   drawFilters();
   const sources = config.sources.filter(s => category === '全部' || s.category === category);
   $('#board').innerHTML = sources.map(card).join('') + (!query ? `<button class="add-card" id="board-add"><span>＋</span><strong>添加你关心的内容</strong><p>RSS · Newsletter · JSON</p><b>把你关心的世界，收进这一页 ↗</b></button>` : '');
   applyAppearance();
-  if (scrollY) window.scrollTo(0, scrollY);
 }
 async function selectRandom(source, state) {
   if (source.type === 'poetry') {
@@ -161,11 +105,6 @@ async function doRefresh(source, force) {
   if (source.type === 'qimai' && !source.url) { states.set(source.id, { status: 'unconfigured' }); render(); return; }
   const key = configKey(source);
   const current = () => config.sources.some(s => s.id === source.id && configKey(s) === key);
-  if (source.type === 'bookmark') {
-    const state = { status: 'ready', data: await loadSource(source) };
-    if (current()) { states.set(source.id, state); render(); }
-    return;
-  }
   if (source.type === 'poetry') {
     const state = { status: 'ready', data: await loadSource(source) };
     await selectRandom(source, state);
@@ -210,10 +149,10 @@ function sourceFields() {
   form.elements.url.required = ['rss','json'].includes(type);
   form.elements.limit.disabled = ['weather','life','poetry','apple','qimai'].includes(type);
   if (form.elements.limit.disabled) form.elements.limit.value = ['weather', 'life', 'poetry'].includes(type) ? 1 : 10;
-  form.elements.refreshMinutes.disabled = ['poetry', 'bookmark'].includes(type);
-  $('#source-hint').textContent = type === 'bookmark' ? '在这张卡片里直接添加、编辑、删除网址；数据只保存在本机，不联网。可设置这一页最多显示多少条。' : type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的接口；使用下面的字段映射匹配你的结构。';
-  if (custom) $('#source-hint').textContent += ' 支持 HTTPS；HTTP 支持 10.0.20.141、localhost 和 127.0.0.1。';
-  if (!editing && !custom) { const preset = DEFAULTS.sources.find(s => s.type === type); form.elements.name.value = preset?.name ?? (type === 'bookmark' ? '我的书签' : ''); form.elements.category.value = preset?.category ?? (type === 'bookmark' ? '导航' : '订阅'); if (type === 'weather') form.elements.refreshMinutes.value = 30; }
+  form.elements.refreshMinutes.disabled = type === 'poetry';
+  $('#source-hint').textContent = type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的接口；使用下面的字段映射匹配你的结构。';
+  $('#source-hint').textContent += ' 支持 HTTPS；HTTP 支持 10.0.20.141、localhost 和 127.0.0.1。';
+  if (!editing && !custom) { const preset = DEFAULTS.sources.find(s => s.type === type); form.elements.name.value = preset.name; form.elements.category.value = preset.category; if (type === 'weather') form.elements.refreshMinutes.value = 30; }
 }
 function showManager() {
   $('#source-list').innerHTML = config.sources.map((s, index) => `<div class="manage-row" data-id="${esc(s.id)}"><span class="source-icon ${s.type}">${icons[s.type]}</span><div><strong>${esc(s.name)}</strong><small>${esc(s.category)} · ${subtitles[s.type]}</small></div><button class="icon-button" data-manage="up" aria-label="上移 ${esc(s.name)}" ${index === 0 ? 'disabled' : ''}>↑</button><button class="icon-button" data-manage="down" aria-label="下移 ${esc(s.name)}" ${index === config.sources.length - 1 ? 'disabled' : ''}>↓</button><button class="icon-button" data-manage="edit" aria-label="编辑 ${esc(s.name)}">✎</button><button class="icon-button danger" data-manage="remove" aria-label="移除 ${esc(s.name)}">×</button></div>`).join('') || '<p class="field-hint">还没有订阅，添加第一个吧。</p>';
@@ -227,11 +166,7 @@ async function moveSource(id, target) {
 }
 function registerEvents() {
   document.querySelectorAll('.close').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
-  $('#reader-dialog').addEventListener('close', () => { $('#reader-content').replaceChildren(); readerSource = null; });
-  $('#reader-content').onclick = e => {
-    const button = e.target.closest('[data-action]');
-    if (button) void handleBookmarkAction(button);
-  };
+  $('#reader-dialog').addEventListener('close', () => $('#reader-content').replaceChildren());
   document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', e => { if (e.target === dialog) { const r = dialog.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dialog.close(); } }));
   $('#add-source').onclick = () => openSource(); $('#manage').onclick = showManager;
   $('#manage-add').onclick = () => { $('#manage-dialog').close(); openSource(); };
@@ -271,7 +206,6 @@ function registerEvents() {
   $('#board').onclick = async e => {
     if (e.target.closest('#board-add')) return openSource();
     const button = e.target.closest('[data-action]'); if (!button) return;
-    if (await handleBookmarkAction(button)) return;
     const source = config.sources.find(s => s.id === button.closest('[data-id]').dataset.id);
     if (button.dataset.action === 'weather-connect') { try { if (await weatherPermission()) await refresh(source, true); else toast('尚未授权天气服务'); } catch (err) { toast(errorMessage(err)); } return; }
     if (button.dataset.action === 'edit') return openSource(source);
@@ -304,21 +238,6 @@ function registerEvents() {
     } catch (err) { $('#source-error').textContent = errorMessage(err); }
     finally { $('#save-source').disabled = false; }
   };
-  $('#bookmark-form').onsubmit = async e => {
-    e.preventDefault();
-    const fields = Object.fromEntries(new FormData(e.target));
-    const item = validateBookmarkItem({ title: fields.title, url: fields.url, description: fields.note });
-    const error = $('#bookmark-error'); error.textContent = '';
-    if (!item) { error.textContent = '请输入有效的网址（仅支持 http / https）。'; return; }
-    try {
-      if (bookmarkEditingId) await updateBookmark(bookmarkEditingId, item);
-      else await addBookmark({ title: item.title, url: item.url, description: item.description });
-      const edited = Boolean(bookmarkEditingId);
-      $('#bookmark-dialog').close();
-      await refreshBookmarkCards();
-      toast(edited ? '网址已更新' : '已添加网址');
-    } catch (err) { error.textContent = errorMessage(err); }
-  };
   $('#source-list').onclick = async e => {
     const button = e.target.closest('[data-manage]'); if (!button) return;
     const id = button.closest('[data-id]').dataset.id; const index = config.sources.findIndex(s => s.id === id); const source = config.sources[index];
@@ -330,39 +249,24 @@ function registerEvents() {
   $('#settings').onclick = () => { $('#theme').value = config.theme; $('#columns').value = config.columns; $('#settings-dialog').showModal(); };
   $('#theme').onchange = async e => { config.theme = e.target.value; await persist(); applyAppearance(); };
   $('#columns').onchange = async e => { config.columns = Number(e.target.value); await persist(); applyAppearance(); };
-  $('#export').onclick = async () => {
-    try {
-      const payload = buildExportPayload(config, await getBookmarks());
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'shiye-tab-config.json'; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast(`已导出配置与 ${payload.bookmarks.length} 条网址书签，请妥善保管私有订阅地址`);
-    } catch (err) { toast(`导出失败：${errorMessage(err)}`); }
-  };
+  $('#export').onclick = () => { const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'shiye-tab-config.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); toast('配置已导出，请妥善保管私有订阅地址'); };
   $('#import').onclick = () => $('#import-file').click();
   $('#import-file').onchange = async e => {
     const file = e.target.files[0]; if (!file) return;
     try {
-      if (file.size > 1024 * 1024) throw new Error('配置文件不能超过 1 MiB。');
-      const { config: next, bookmarks } = parseImportPayload(JSON.parse(await file.text()));
+      if (file.size > 256 * 1024) throw new Error('配置文件不能超过 256 KiB。');
+      const next = validateConfig(JSON.parse(await file.text()));
       await Promise.allSettled([...inFlight.values()]);
-      // Write bookmarks before swapping config: a storage error must not leave a half-imported board.
-      if (bookmarks) await saveBookmarks(bookmarks);
       const oldIds = config.sources.map(s => s.id); config = next; await persist();
-      bookmarkTotal = (await getBookmarks()).length;
       for (const id of oldIds) { await remove(`cache:${id}`); await remove(`last:${id}`); }
       states.clear(); category = '全部'; query = ''; $('#search').value = ''; render(); $('#settings-dialog').close();
-      void Promise.allSettled(config.sources.map(s => refresh(s)));
-      toast(bookmarks ? `配置已导入，恢复 ${bookmarks.length} 条网址书签；新站点请在卡片上授权`
-        : '配置已导入，现有书签保持不变；新站点请在卡片上授权');
+      void Promise.allSettled(config.sources.map(s => refresh(s))); toast('配置已导入，新站点请在卡片上授权');
     } catch (err) { toast(`导入失败：${errorMessage(err)}`); } finally { e.target.value = ''; }
   };
 }
 try {
   config = await getConfig();
 } catch { config = cloneDefaults(); toast('已保存的配置无法读取，暂时显示默认看板。'); }
-try { bookmarkTotal = (await getBookmarks()).length; } catch { bookmarkTotal = 0; }
 $('#preview-note').hidden = extension;
 registerEvents(); render();
 setInterval(() => { if (!document.hidden) updateClocks(); }, 1000);

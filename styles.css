@@ -50,15 +50,6 @@ main{max-width:1900px;margin:auto;padding:24px 24px 0}
 .source-icon.qimai{background:#6568c6;color:white;font-size:22px;font-weight:450}
 .source-icon.rss{background:var(--neutral-soft);color:var(--sub)}
 .source-icon.json{font-size:16px}
-.source-icon.bookmark{background:var(--soft);color:var(--accent)}
-.bookmark-actions{display:flex;gap:2px;flex:none;align-items:center}
-.bookmark-actions .icon-button{width:22px;height:22px;font-size:14px;color:var(--muted)}
-.bookmark-actions .icon-button:hover{background:var(--hover);color:var(--text)}
-.bookmark-actions .danger:hover{color:var(--error)}
-.bookmark-add-link{font-size:11px;color:var(--accent);white-space:nowrap}
-.bookmark-add-link:hover{text-decoration:underline;text-underline-offset:3px}
-.bookmark-total{font-size:11px;color:var(--sub);white-space:nowrap}
-.bookmark-reader-actions{display:flex;justify-content:flex-end;padding:10px 16px 4px;border-top:1px solid var(--border)}
 .card-heading{min-width:0}
 .card-heading h2{font-size:15px;font-weight:650;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-heading>span{display:block;font-size:11px;color:var(--muted);margin-top:2px}

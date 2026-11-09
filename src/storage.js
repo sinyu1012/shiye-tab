@@ -1,4 +1,4 @@
-import { cloneDefaults, validateConfig, sourceUrl, validateBookmarkItem, normalizeBookmarkUrl, cleanBookmarks, BOOKMARKS_KEY, BOOKMARKS_MAX } from './model.js';
+import { cloneDefaults, validateConfig, sourceUrl } from './model.js';
 export const extension = Boolean(globalThis.chrome?.storage?.local);
 export async function read(key) {
   if (extension) return (await chrome.storage.local.get(key))[key];
@@ -44,34 +44,4 @@ export function permission(url, request = false) {
   if (!extension) return Promise.resolve(true);
   const options = { origins: [`${u.protocol}//${u.hostname}/*`] };
   return request ? chrome.permissions.request(options) : chrome.permissions.contains(options);
-}
-export async function getBookmarks() {
-  return cleanBookmarks(await read(BOOKMARKS_KEY));
-}
-export async function saveBookmarks(items) {
-  const clean = cleanBookmarks(items);
-  await write(BOOKMARKS_KEY, clean);
-  return clean;
-}
-export async function addBookmark(input) {
-  const list = await getBookmarks();
-  if (list.length >= BOOKMARKS_MAX) throw new Error(`网址书签最多 ${BOOKMARKS_MAX} 条，请先删除一些。`);
-  const item = validateBookmarkItem({ ...input, id: input?.id || crypto.randomUUID() });
-  if (!item) throw new Error('请输入有效的网址（仅支持 http / https）。');
-  if (list.some(b => b.url === item.url)) throw new Error('这个网址已经在书签里了。');
-  return saveBookmarks([item, ...list]);
-}
-export async function updateBookmark(id, input) {
-  const list = await getBookmarks();
-  const index = list.findIndex(b => b.id === id);
-  if (index < 0) throw new Error('找不到这条网址，可能已被删除。');
-  const url = normalizeBookmarkUrl(input?.url);
-  if (!url) throw new Error('请输入有效的网址（仅支持 http / https）。');
-  if (list.some((b, i) => i !== index && b.url === url)) throw new Error('这个网址已经在书签里了。');
-  list[index] = validateBookmarkItem({ ...list[index], ...input, id, url,
-    createdAt: list[index].createdAt, updatedAt: Date.now() });
-  return saveBookmarks(list);
-}
-export async function removeBookmark(id) {
-  return saveBookmarks((await getBookmarks()).filter(b => b.id !== id));
 }
