@@ -1,5 +1,5 @@
 import { LIFE_REPO, atPath, safeUrl, sourceUrl } from './model.js';
-import { permission } from './storage.js';
+import { permission, getBookmarks } from './storage.js';
 const RAW = 'https://raw.githubusercontent.com/eternity4719/HowToLiveBetter/main/';
 export async function fetchText(url) {
   url = sourceUrl(url);
@@ -97,6 +97,9 @@ export function parseJson(text, source) {
   })).filter(i => i.title);
 }
 export async function loadSource(source) {
+  if (source.type === 'bookmark') {
+    return { items: await getBookmarks(), fetchedAt: Date.now() };
+  }
   if (source.type === 'weather') {
     const { loadWeather } = await import('./weather.js');
     return loadWeather(source);
