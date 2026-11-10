@@ -2,8 +2,9 @@ export const LIFE_REPO = 'https://github.com/eternity4719/HowToLiveBetter';
 export const QIMAI_HOME = 'https://www.qimai.cn/rank/index/brand/free/country/cn/genre/36/device/iphone';
 export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json', 'bookmark'];
 export const BOOKMARKS_KEY = 'bookmarks';
-export const BOOKMARKS_MAX = 10;
-export const BOOKMARKS_TWO_COL_AFTER = 5;
+// Up to 12 URLs: one column holds at most 6, beyond that the card splits into two columns.
+export const BOOKMARKS_MAX = 12;
+export const BOOKMARKS_TWO_COL_AFTER = 6;
 export const DEFAULTS = {
   version: 1, theme: 'system', columns: 4,
   sources: [

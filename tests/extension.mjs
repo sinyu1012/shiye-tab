@@ -418,7 +418,8 @@ try {
     await page.locator('#source-type').selectOption('bookmark');
     assert.equal(await page.locator('#source-form [name="name"]').inputValue(), '我的书签');
     assert.equal(await page.locator('#source-form [name="category"]').inputValue(), '导航');
-    assert.equal(await page.locator('#source-form [name="limit"]').getAttribute('max'), '10');
+    assert.equal(await page.locator('#source-form [name="limit"]').getAttribute('max'), '12');
+    assert.equal(await page.locator('#source-form [name="limit"]').inputValue(), '12', 'new bookmark cards display all 12 entries');
     assert.equal(await page.locator('#url-fields').isHidden(), true);
     assert.equal(await page.locator('#source-form [name="refreshMinutes"]').isDisabled(), true);
     await page.getByRole('button', { name: '添加到看板', exact: true }).click();
@@ -478,13 +479,29 @@ try {
     assert.match(await footerStatus.innerText(), /书签管理/);
     assert.doesNotMatch(await footerStatus.innerText(), /更新/);
     assert.equal(await bookmarkCard.locator('[data-action="read"]').count(), 1, 'only one manager entry lives in the footer');
+    // The footer entry uses the quiet "Open-Meteo" credit style of the "此刻" card.
+    const { creditStyle, openMeteoStyle } = await page.evaluate(() => {
+      const read = el => {
+        const s = getComputedStyle(el); return { size: s.fontSize, color: s.color, decoration: s.textDecorationLine };
+      };
+      return {
+        creditStyle: read(document.querySelector('[data-type="bookmark"] .bookmark-manage-link')),
+        openMeteoStyle: read(document.querySelector('.weather-card .card-footer a')),
+      };
+    });
+    assert.equal(creditStyle.size, openMeteoStyle.size, 'footer credit keeps the 10px type size');
+    assert.equal(creditStyle.color, openMeteoStyle.color, 'footer credit keeps the muted paper ink');
+    assert.equal(creditStyle.decoration, openMeteoStyle.decoration, 'footer credit has no underline');
     // Rows are divided by the same paper-toned rule used by the "此刻" card.
-    const rowRule = await bookmarkCard.locator('.item-list li').evaluateAll(rows => rows.map(r => {
-      const s = getComputedStyle(r);
-      return { top: s.borderTopWidth, color: s.borderTopColor, radius: s.borderTopLeftRadius };
-    }));
-    const weatherRule = await page.locator('.weather-metrics').evaluate(el => {
-      const s = getComputedStyle(el); return { top: s.borderTopWidth, color: s.borderTopColor };
+    const { rowRule, weatherRule } = await page.evaluate(() => {
+      const s = getComputedStyle(document.querySelector('.weather-metrics'));
+      return {
+        rowRule: [...document.querySelectorAll('[data-type="bookmark"] .item-list li')].map(r => {
+          const cs = getComputedStyle(r);
+          return { top: cs.borderTopWidth, color: cs.borderTopColor, radius: cs.borderTopLeftRadius };
+        }),
+        weatherRule: { top: s.borderTopWidth, color: s.borderTopColor },
+      };
     });
     assert.equal(rowRule[0].top, '0px', 'first row has no top rule; the header rule sits above it');
     assert.equal(rowRule[1].top, weatherRule.top);
@@ -507,22 +524,34 @@ try {
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === 'MDN 中文');
-    // Six entries switch the card to two columns.
+    // Six entries still fit one column; a seventh splits the card in two.
     await page.evaluate(async () => {
       const { saveBookmarks } = await import('./src/storage.js');
       await saveBookmarks(Array.from({ length: 6 }, (_, i) => ({ id: `b${i}`, title: `站点 ${i}`, url: `https://site${i}.example/` })));
     });
     await page.reload();
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 6);
-    assert.equal(await bookmarkCard.locator('.item-list.two-col').count(), 1, 'more than 5 entries render two columns');
-    assert.equal(await bookmarkCard.locator('.item-list.two-col').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 2);
+    assert.equal(await bookmarkCard.locator('.item-list.two-col').count(), 0, 'six entries stay in a single column');
+    await page.evaluate(async () => {
+      const { saveBookmarks } = await import('./src/storage.js');
+      await saveBookmarks(Array.from({ length: 7 }, (_, i) => ({ id: `b${i}`, title: `站点 ${i}`, url: `https://site${i}.example/` })));
+    });
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 7);
+    assert.equal(await bookmarkCard.locator('.item-list.two-col').count(), 1, 'more than 6 entries render two columns');
+    // Wait until the reloaded document has actually laid out the grid before reading computed styles.
+    await page.waitForFunction(() => {
+      const list = document.querySelector('[data-type="bookmark"] .item-list.two-col');
+      return list && getComputedStyle(list).display === 'grid' && getComputedStyle(list).gridTemplateColumns.split(' ').length === 2;
+    });
     // Two-column mode adds a vertical rule between columns and horizontal rules between rows.
-    const gridRule = await bookmarkCard.locator('.item-list.two-col li').evaluateAll(rows => rows.map(r => {
+    const gridRule = await page.evaluate(() => [...document.querySelectorAll('[data-type="bookmark"] .item-list.two-col li')].map(r => {
       const s = getComputedStyle(r);
       return { top: s.borderTopWidth, left: s.borderLeftWidth, color: s.borderTopColor, leftColor: s.borderLeftColor };
     }));
-    const weatherVertical = await page.locator('.weather-metrics>div+div').first().evaluate(el => {
-      const s = getComputedStyle(el); return { left: s.borderLeftWidth, color: s.borderLeftColor };
+    const weatherVertical = await page.evaluate(() => {
+      const s = getComputedStyle(document.querySelector('.weather-metrics>div+div'));
+      return { left: s.borderLeftWidth, color: s.borderLeftColor };
     });
     assert.equal(gridRule[0].top, '0px');
     assert.equal(gridRule[1].top, '0px', 'the first row is not split horizontally');
@@ -533,27 +562,29 @@ try {
     assert.equal(await bookmarkCard.locator('[data-action="bookmark-edit"], [data-action="bookmark-delete"]').count(), 0);
     // Drag the last row to the top; the new order must survive a reload.
     await bookmarkCard.locator('[data-action="read"]').click();
-    const sixRows = page.locator('#reader-content .bookmark-manage-list li');
-    await sixRows.nth(5).dragTo(sixRows.nth(0));
-    await page.waitForFunction(() => document.querySelector('#reader-content .bookmark-manage-list .item-title')?.textContent === '站点 5');
+    const sevenRows = page.locator('#reader-content .bookmark-manage-list li');
+    await sevenRows.nth(6).dragTo(sevenRows.nth(0));
+    await page.waitForFunction(() => document.querySelector('#reader-content .bookmark-manage-list .item-title')?.textContent === '站点 6');
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
-    await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 5');
-    log.push('Bookmark manager: footer entry replaces the update status, paper-toned row/column rules match the "此刻" card, in-dialog edit/delete, two-column layout above 5 entries and drag-to-reorder persistence verified.');
-    // The 10-entry cap is enforced by the add form.
+    await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 6');
+    log.push('Bookmark manager: footer entry replaces the update status, matches the Open-Meteo credit style, paper-toned row/column rules match the "此刻" card, in-dialog edit/delete, single column up to 6 entries, two columns above it and drag-to-reorder persistence verified.');
+    // The 12-entry cap is enforced by the add form, with 6 rows per column.
     await page.evaluate(async () => {
       const { saveBookmarks } = await import('./src/storage.js');
-      await saveBookmarks(Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, title: `收藏 ${i}`, url: `https://c${i}.example/` })));
+      await saveBookmarks(Array.from({ length: 12 }, (_, i) => ({ id: `c${i}`, title: `收藏 ${i}`, url: `https://c${i}.example/` })));
     });
     await page.reload();
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 12);
     await bookmarkCard.locator('[data-action="bookmark-add"]').first().click();
     await page.locator('#bookmark-form [name="url"]').fill('https://overflow.example/');
     await page.locator('#save-bookmark').click();
-    await page.waitForFunction(() => document.querySelector('#bookmark-error')?.textContent.includes('最多 10 条'));
-    assert.equal(await bookmarkCard.locator('.item-list li').count(), 10);
+    await page.waitForFunction(() => document.querySelector('#bookmark-error')?.textContent.includes('最多 12 条'));
+    assert.equal(await bookmarkCard.locator('.item-list li').count(), 12);
     await page.locator('#bookmark-dialog .close').first().click();
-    log.push('Bookmark cap of 10 entries is enforced by the add form.');
+    const rowTops = await page.evaluate(() => [...new Set([...document.querySelectorAll('[data-type="bookmark"] .item-list.two-col li')].map(r => Math.round(r.getBoundingClientRect().top)))]);
+    assert.equal(rowTops.length, 6, '12 entries form 6 rows — at most 6 per column');
+    log.push('Bookmark cap of 12 entries, six per column, is enforced by the add form.');
     // Export carries the URLs; importing restores them after local data is wiped.
     await page.getByRole('button', { name: '外观与设置' }).click();
     const bookmarkDownload = page.waitForEvent('download');
@@ -561,28 +592,28 @@ try {
     const bookmarkFile = await bookmarkDownload;
     await bookmarkFile.saveAs('artifacts/bookmark-export.json');
     const exported = JSON.parse(await readFile('artifacts/bookmark-export.json', 'utf8'));
-    assert.equal(exported.bookmarks.length, 10);
+    assert.equal(exported.bookmarks.length, 12);
     assert.equal(exported.version, 1, 'export top level is still a version-1 config');
     assert.equal(exported.sources.length, 6);
     assert.deepEqual(Object.keys(exported).sort(), ['bookmarks', 'columns', 'sources', 'theme', 'version']);
     await page.evaluate(async () => { const { saveBookmarks } = await import('./src/storage.js'); await saveBookmarks([]); });
     await page.locator('#import-file').setInputFiles('artifacts/bookmark-export.json');
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 12);
     // A legacy config file (no bookmarks field) must not wipe local bookmarks.
     const legacyConfig = { ...exported }; delete legacyConfig.bookmarks;
     await page.getByRole('button', { name: '外观与设置' }).click();
     await page.locator('#import-file').setInputFiles({ name: 'legacy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacyConfig)) });
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 12);
     // A malformed bookmarks field must not break the config import either.
     await page.getByRole('button', { name: '外观与设置' }).click();
     await page.locator('#import-file').setInputFiles({ name: 'bad-bookmarks.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...legacyConfig, bookmarks: 'oops' })) });
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
     assert.equal(await page.locator('.card').count(), 6);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 12);
     log.push('Legacy config without bookmarks keeps local URLs; a malformed bookmarks field does not break config import.');
-    log.push('Bookmark card: paper background, bold titles, no inline action buttons, 10-entry cap, two columns and export/import round trip verified.');
+    log.push('Bookmark card: paper background, bold titles, no inline action buttons, 12-entry cap, two columns and export/import round trip verified.');
   }
   assert.deepEqual(failures, []);
   log.push('390px layout has no horizontal overflow; no uncaught page errors.');
