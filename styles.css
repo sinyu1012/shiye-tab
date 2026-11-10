@@ -388,21 +388,24 @@ dialog input:disabled{opacity:.5}
 .bookmark-card .bookmark-add-link,.bookmark-card .content-more{color:var(--bm-accent)}
 .bookmark-card .empty-card h3,.bookmark-card .empty-card p,.bookmark-card .empty-card small{color:var(--bm-muted)}
 .bookmark-card .button.secondary{border-color:var(--bm-line);background:transparent;color:var(--bm-ink)}
-/* Paper-toned rules separate rows and columns, echoing the "此刻" card. */
+/* Magazine index: an accent bar and short dashed rules instead of a table grid. */
 .bookmark-card .item-list{padding:0 16px}
-.bookmark-card .item-list li{border:0;border-radius:0;padding:8px 0;gap:8px;min-height:36px;align-items:center}
-.bookmark-card .item-list li+li{border-top:1px solid var(--bm-line)}
+.bookmark-card .item-list li{position:relative;border:0;border-radius:0;padding:8px 4px 8px 12px;gap:9px;min-height:36px;align-items:center}
 .bookmark-card .item-list li:hover{background:color-mix(in srgb,var(--bm-soft) 65%,transparent)}
+.bookmark-card .item-list li::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:16px;background:var(--bm-accent)}
+.bookmark-card .bookmark-rule{position:absolute;left:12px;bottom:0;width:44px;border-bottom:1px dashed var(--bm-line)}
+.bookmark-card .item-list li:nth-last-child(1) .bookmark-rule{display:none}
+.bookmark-glyph{display:inline-grid;place-items:center;width:16px;height:16px;flex:none;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-size:11px;font-weight:650;line-height:1}
+.bookmark-card .bookmark-glyph{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
 .bookmark-card .item-title{font-weight:650}
-.bookmark-card .rank{font-weight:600;color:var(--bm-muted)}
-/* Same quiet 10px footer credit as "Open-Meteo" on the "此刻" card. */
+/* Same quiet 10px footer credit as "Open-Meteo" on the "此刻" card, kept on the right. */
+.bookmark-card .card-footer>div{gap:8px}
 .bookmark-card .update-status.bookmark-manage-link{padding:0;font-size:10px;color:var(--bm-muted);white-space:nowrap}
 .bookmark-card .update-status.bookmark-manage-link:hover{color:var(--bm-accent)}
 .bookmark-card .item-list.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:0;align-content:start}
 .bookmark-card .item-list.two-col li{min-width:0;padding-right:8px}
-.bookmark-card .item-list.two-col li+li{border-top:0}
-.bookmark-card .item-list.two-col li:nth-child(n+3){border-top:1px solid var(--bm-line)}
-.bookmark-card .item-list.two-col li:nth-child(even){border-left:1px solid var(--bm-line);padding-left:8px}
+.bookmark-card .item-list.two-col li:nth-last-child(-n+2) .bookmark-rule{display:none}
+.bookmark-card .item-list.two-col li:nth-child(even)::after{content:"";position:absolute;left:-5px;top:50%;transform:translateY(-50%);height:16px;border-left:1px dashed var(--bm-line)}
 #reader-content .bookmark-manage-list li{align-items:center;flex-wrap:nowrap;padding:9px 8px;border-radius:8px;cursor:grab}
 #reader-content .bookmark-manage-list li:active{cursor:grabbing}
 #reader-content .bookmark-manage-list li:hover{background:var(--hover)}

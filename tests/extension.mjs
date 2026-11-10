@@ -474,11 +474,13 @@ try {
     await page.locator('#bookmark-form [name="url"]').fill('https://example.com/docs');
     await page.locator('#save-bookmark').click();
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
-    // "书签管理" replaces the "刚刚更新" status in the card footer; editing and deleting live in the dialog.
+    // "书签管理" sits on the right of the footer; the add action stays on the left.
     const footerStatus = bookmarkCard.locator('.card-footer .update-status');
     assert.match(await footerStatus.innerText(), /书签管理/);
     assert.doesNotMatch(await footerStatus.innerText(), /更新/);
     assert.equal(await bookmarkCard.locator('[data-action="read"]').count(), 1, 'only one manager entry lives in the footer');
+    assert.equal(await bookmarkCard.locator('.card-footer>div .bookmark-manage-link').count(), 1, 'manager entry is on the right side');
+    assert.equal(await bookmarkCard.locator('.card-footer>.bookmark-add-link').count(), 1, 'add action is on the left side');
     // The footer entry uses the quiet "Open-Meteo" credit style of the "此刻" card.
     const { creditStyle, openMeteoStyle } = await page.evaluate(() => {
       const read = el => {
@@ -492,21 +494,32 @@ try {
     assert.equal(creditStyle.size, openMeteoStyle.size, 'footer credit keeps the 10px type size');
     assert.equal(creditStyle.color, openMeteoStyle.color, 'footer credit keeps the muted paper ink');
     assert.equal(creditStyle.decoration, openMeteoStyle.decoration, 'footer credit has no underline');
-    // Rows are divided by the same paper-toned rule used by the "此刻" card.
-    const { rowRule, weatherRule } = await page.evaluate(() => {
-      const s = getComputedStyle(document.querySelector('.weather-metrics'));
+    // Magazine index: no ordinals, small monogram icons, accent bars and short dashed rules.
+    const magazine = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-type="bookmark"] .item-list li')];
+      const first = rows[0];
+      const rule = first.querySelector('.bookmark-rule');
+      const s = getComputedStyle(first);
+      const bar = getComputedStyle(first, '::before');
+      const dash = getComputedStyle(rule);
+      const weather = getComputedStyle(document.querySelector('.weather-metrics'));
       return {
-        rowRule: [...document.querySelectorAll('[data-type="bookmark"] .item-list li')].map(r => {
-          const cs = getComputedStyle(r);
-          return { top: cs.borderTopWidth, color: cs.borderTopColor, radius: cs.borderTopLeftRadius };
-        }),
-        weatherRule: { top: s.borderTopWidth, color: s.borderTopColor },
+        ranks: document.querySelectorAll('[data-type="bookmark"] .item-list .rank').length,
+        glyphs: document.querySelectorAll('[data-type="bookmark"] .item-list .bookmark-glyph').length,
+        top: s.borderTopWidth, radius: s.borderTopLeftRadius,
+        barWidth: bar.width, barColor: bar.backgroundColor,
+        dashWidth: dash.width, dashStyle: dash.borderBottomStyle, dashColor: dash.borderBottomColor,
+        weatherColor: weather.borderTopColor,
       };
     });
-    assert.equal(rowRule[0].top, '0px', 'first row has no top rule; the header rule sits above it');
-    assert.equal(rowRule[1].top, weatherRule.top);
-    assert.equal(rowRule[1].color, weatherRule.color, 'row rule matches the "此刻" card line color');
-    assert.equal(rowRule[1].radius, '0px');
+    assert.equal(magazine.ranks, 0, 'ordinal numbers are gone from bookmark rows');
+    assert.equal(magazine.glyphs, 2, 'each bookmark has a monogram icon');
+    assert.equal(magazine.top, '0px', 'rows no longer carry full-width grid borders');
+    assert.equal(magazine.radius, '0px');
+    assert.equal(magazine.barWidth, '2px', 'accent bar is present');
+    assert.equal(magazine.dashStyle, 'dashed', 'short rule is dashed');
+    assert.ok(parseFloat(magazine.dashWidth) < 60, 'rule is short, not a full-width line');
+    assert.equal(magazine.dashColor, magazine.weatherColor, 'dashed rule uses the "此刻" paper line color');
     await bookmarkCard.locator('[data-action="read"]').click();
     assert.match(await page.locator('#reader-subtitle').innerText(), /拖动排序/);
     assert.equal(await page.locator('#reader-content .bookmark-manage-list li').count(), 2);
@@ -544,31 +557,38 @@ try {
       const list = document.querySelector('[data-type="bookmark"] .item-list.two-col');
       return list && getComputedStyle(list).display === 'grid' && getComputedStyle(list).gridTemplateColumns.split(' ').length === 2;
     });
-    // Two-column mode adds a vertical rule between columns and horizontal rules between rows.
-    const gridRule = await page.evaluate(() => [...document.querySelectorAll('[data-type="bookmark"] .item-list.two-col li')].map(r => {
-      const s = getComputedStyle(r);
-      return { top: s.borderTopWidth, left: s.borderLeftWidth, color: s.borderTopColor, leftColor: s.borderLeftColor };
-    }));
-    const weatherVertical = await page.evaluate(() => {
-      const s = getComputedStyle(document.querySelector('.weather-metrics>div+div'));
-      return { left: s.borderLeftWidth, color: s.borderLeftColor };
+    // Two-column mode keeps the accent bars and uses a short dashed vertical segment instead of a grid border.
+    const gridRule = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-type="bookmark"] .item-list.two-col li')];
+      const s = getComputedStyle(rows[0]);
+      const right = getComputedStyle(rows[1]);
+      const v = getComputedStyle(rows[1], '::after');
+      const weather = getComputedStyle(document.querySelector('.weather-metrics>div+div'));
+      return {
+        top: s.borderTopWidth, left: s.borderLeftWidth,
+        rightTop: right.borderTopWidth, rightLeft: right.borderLeftWidth,
+        vStyle: v.borderLeftStyle, vColor: v.borderLeftColor, vHeight: v.height,
+        weatherColor: weather.borderLeftColor,
+      };
     });
-    assert.equal(gridRule[0].top, '0px');
-    assert.equal(gridRule[1].top, '0px', 'the first row is not split horizontally');
-    assert.equal(gridRule[2].top, '1px', 'later rows get horizontal rules');
-    assert.equal(gridRule[0].left, '0px', 'left column has no vertical rule');
-    assert.equal(gridRule[1].left, weatherVertical.left, 'right column uses the "此刻" vertical rule');
-    assert.equal(gridRule[1].leftColor, weatherVertical.color);
+    assert.equal(gridRule.top, '0px', 'no full-width horizontal border');
+    assert.equal(gridRule.left, '0px', 'left column has no vertical border');
+    assert.equal(gridRule.rightTop, '0px', 'right column has no full-width horizontal border');
+    assert.equal(gridRule.rightLeft, '0px', 'no full-height vertical border');
+    assert.equal(gridRule.vStyle, 'dashed', 'column separator is a short dashed segment');
+    assert.equal(gridRule.vColor, gridRule.weatherColor, 'separator uses the "此刻" paper line color');
     assert.equal(await bookmarkCard.locator('[data-action="bookmark-edit"], [data-action="bookmark-delete"]').count(), 0);
     // Drag the last row to the top; the new order must survive a reload.
     await bookmarkCard.locator('[data-action="read"]').click();
     const sevenRows = page.locator('#reader-content .bookmark-manage-list li');
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list .rank').count(), 0, 'manager rows also drop ordinals');
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list .bookmark-glyph').count(), 7, 'manager rows use monogram icons');
     await sevenRows.nth(6).dragTo(sevenRows.nth(0));
     await page.waitForFunction(() => document.querySelector('#reader-content .bookmark-manage-list .item-title')?.textContent === '站点 6');
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 6');
-    log.push('Bookmark manager: footer entry replaces the update status, matches the Open-Meteo credit style, paper-toned row/column rules match the "此刻" card, in-dialog edit/delete, single column up to 6 entries, two columns above it and drag-to-reorder persistence verified.');
+    log.push('Bookmark manager: right-side footer entry matches the Open-Meteo credit style, magazine-index accent bars + short dashed rules + monogram icons replace ordinals and grid lines, in-dialog edit/delete, single column up to 6 entries, two columns above it and drag-to-reorder persistence verified.');
     // The 12-entry cap is enforced by the add form, with 6 rows per column.
     await page.evaluate(async () => {
       const { saveBookmarks } = await import('./src/storage.js');
