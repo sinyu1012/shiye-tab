@@ -86,10 +86,14 @@ function lifeContent(i, expanded = false) {
 function readingContent(i, expanded = false) {
   return `<div class="reading-content">${i.meta ? `<p class="reading-meta">${esc(i.meta)}</p>` : ''}<h3>${link(i.url, esc(i.title))}</h3>${i.description ? `<p class="reading-description">${esc(i.description)}</p>` : ''}<div class="reading-bottom">${expanded ? link(i.url, safeUrl(i.url) ? '打开原文 ↗' : '以上为订阅提供的内容') : '<button class="content-more" data-action="read">展开阅读 →</button>'}</div></div>`;
 }
-const BOOKMARK_ITEM_ICON = '<span class="bookmark-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3.4L7 20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+function bookmarkMonogram(title) {
+  const name = String(title ?? '').trim();
+  const letter = name ? [...name][0].toUpperCase() : '◆';
+  return `<span class="bookmark-glyph" aria-hidden="true">${esc(letter)}</span>`;
+}
 function itemList(source, items, { className = '', actions = false, sortable = false, rules = false } = {}) {
   const listClass = ['item-list', className].filter(Boolean).join(' ');
-  const lead = (_, index) => source.type === 'bookmark' ? BOOKMARK_ITEM_ICON : `<span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span>`;
+  const lead = (i, index) => source.type === 'bookmark' ? bookmarkMonogram(i.title) : `<span class="rank rank-${index + 1}">${String(index + 1).padStart(2, '0')}</span>`;
   return `<ol class="${listClass}"${sortable ? ' data-bookmark-sortable' : ''}>${items.map((i, index) => `<li${sortable ? ` draggable="true" data-bookmark-id="${esc(i.id)}"` : ''}>${lead(i, index)}${rules ? '<span class="bookmark-rule" aria-hidden="true"></span>' : ''}<div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p>${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}${actions && source.type === 'bookmark' ? bookmarkActions(i) : ''}</li>`).join('')}</ol>`;
 }
 function readerMarkup(source, items) {

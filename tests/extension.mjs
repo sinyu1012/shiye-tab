@@ -494,7 +494,7 @@ try {
     assert.equal(creditStyle.size, openMeteoStyle.size, 'footer credit keeps the 10px type size');
     assert.equal(creditStyle.color, openMeteoStyle.color, 'footer credit keeps the muted paper ink');
     assert.equal(creditStyle.decoration, openMeteoStyle.decoration, 'footer credit has no underline');
-    // Magazine index: no ordinals, one shared SVG bookmark icon, accent bars and short dashed rules.
+    // Magazine index: no ordinals, name monogram badges, green accent bars and short dashed rules.
     const magazine = await page.evaluate(() => {
       const rows = [...document.querySelectorAll('[data-type="bookmark"] .item-list li')];
       const first = rows[0];
@@ -503,11 +503,14 @@ try {
       const bar = getComputedStyle(first, '::before');
       const dash = getComputedStyle(rule);
       const weather = getComputedStyle(document.querySelector('.weather-metrics'));
+      const badges = [...document.querySelectorAll('[data-type="bookmark"] .item-list .bookmark-glyph')];
       return {
         ranks: document.querySelectorAll('[data-type="bookmark"] .item-list .rank').length,
-        icons: document.querySelectorAll('[data-type="bookmark"] .item-list .bookmark-icon svg').length,
-        iconPaths: [...document.querySelectorAll('[data-type="bookmark"] .item-list .bookmark-icon svg path')].map(p => p.getAttribute('d')),
-        iconText: document.querySelector('[data-type="bookmark"] .item-list .bookmark-icon')?.textContent ?? '',
+        glyphs: badges.length,
+        glyphSvg: document.querySelectorAll('[data-type="bookmark"] .item-list .bookmark-glyph svg').length,
+        glyphTexts: badges.map(g => g.textContent.trim()),
+        titles: [...document.querySelectorAll('[data-type="bookmark"] .item-list .item-title')].map(t => t.textContent.trim()),
+        glyphColor: getComputedStyle(badges[0]).color,
         top: s.borderTopWidth, radius: s.borderTopLeftRadius,
         barWidth: bar.width, barColor: bar.backgroundColor,
         dashWidth: dash.width, dashStyle: dash.borderBottomStyle, dashColor: dash.borderBottomColor,
@@ -515,9 +518,13 @@ try {
       };
     });
     assert.equal(magazine.ranks, 0, 'ordinal numbers are gone from bookmark rows');
-    assert.equal(magazine.icons, 2, 'each bookmark has an SVG bookmark icon');
-    assert.equal(magazine.iconText, '', 'the icon is pure SVG, with no monogram letter');
-    assert.equal(new Set(magazine.iconPaths).size, 1, 'all rows share the same bookmark glyph');
+    assert.equal(magazine.glyphs, 2, 'each bookmark has a name monogram badge');
+    assert.equal(magazine.glyphSvg, 0, 'badges are text monograms, not SVG icons');
+    assert.deepEqual(magazine.glyphTexts, magazine.titles.map(t => [...t][0].toUpperCase()), 'badge shows the first character of the bookmark name');
+    assert.deepEqual([...magazine.glyphTexts].sort(), ['M', '示'].sort(), 'badges show the first character of both bookmark names');
+    const isGreen = color => { const [r, g, b] = color.match(/\d+/g).map(Number); return g > r && g > b; };
+    assert.ok(isGreen(magazine.glyphColor), 'badge ink is in the green family');
+    assert.equal(magazine.barColor, magazine.glyphColor, 'accent bar shares the green marker color');
     assert.equal(magazine.top, '0px', 'rows no longer carry full-width grid borders');
     assert.equal(magazine.radius, '0px');
     assert.equal(magazine.barWidth, '2px', 'accent bar is present');
@@ -586,13 +593,14 @@ try {
     await bookmarkCard.locator('[data-action="read"]').click();
     const sevenRows = page.locator('#reader-content .bookmark-manage-list li');
     assert.equal(await page.locator('#reader-content .bookmark-manage-list .rank').count(), 0, 'manager rows also drop ordinals');
-    assert.equal(await page.locator('#reader-content .bookmark-manage-list .bookmark-icon svg').count(), 7, 'manager rows use the same SVG bookmark icon');
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list .bookmark-glyph').count(), 7, 'manager rows use name monogram badges');
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list .bookmark-glyph svg').count(), 0, 'manager badges are text monograms');
     await sevenRows.nth(6).dragTo(sevenRows.nth(0));
     await page.waitForFunction(() => document.querySelector('#reader-content .bookmark-manage-list .item-title')?.textContent === '站点 6');
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 6');
-    log.push('Bookmark manager: left-side footer entry matches the Open-Meteo credit style with the add action on the right, magazine-index accent bars + short dashed rules + shared SVG bookmark icons replace ordinals and grid lines, in-dialog edit/delete, single column up to 6 entries, two columns above it and drag-to-reorder persistence verified.');
+    log.push('Bookmark manager: left-side footer entry matches the Open-Meteo credit style with the add action on the right, magazine-index green accent bars + short dashed rules + name monogram badges replace ordinals and grid lines, in-dialog edit/delete, single column up to 6 entries, two columns above it and drag-to-reorder persistence verified.');
     // The 12-entry cap is enforced by the add form, with 6 rows per column.
     await page.evaluate(async () => {
       const { saveBookmarks } = await import('./src/storage.js');

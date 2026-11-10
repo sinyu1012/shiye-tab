@@ -1,8 +1,8 @@
-:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-synthesis:none;--bg:#f5f6f8;--card:#fff;--text:#202530;--muted:#748091;--sub:#636c7d;--border:#e2e5eb;--accent:#3555cb;--soft:#ebefff;--life:#f8f9fc;--hover:#f2f4f8;--brand:#202530;--on-brand:#fff;--primary:#355df5;--on-primary:#fff;--neutral-soft:#eceef3;--success:#389477;--warning:#9b702b;--error:#b84a48;color-scheme:light}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);background:var(--bg);font-synthesis:none;--bg:#f5f6f8;--card:#fff;--text:#202530;--muted:#748091;--sub:#636c7d;--border:#e2e5eb;--accent:#3555cb;--soft:#ebefff;--life:#f8f9fc;--hover:#f2f4f8;--brand:#202530;--on-brand:#fff;--primary:#355df5;--on-primary:#fff;--neutral-soft:#eceef3;--success:#389477;--warning:#9b702b;--error:#b84a48;--bm-marker:#2f7d5b;color-scheme:light}
 
-:root[data-theme=dark]{--bg:#13161c;--card:#1d2129;--text:#e7eaf2;--muted:#939dae;--sub:#b3bdcd;--border:#303642;--accent:#9aafff;--soft:#283454;--life:#191e28;--hover:#262d39;--brand:#e7eaf2;--on-brand:#171a21;--primary:#87a3ff;--on-primary:#101a37;--neutral-soft:#2b3240;--success:#6bbca0;--warning:#d6ae70;--error:#f19391;color-scheme:dark}
+:root[data-theme=dark]{--bg:#13161c;--card:#1d2129;--text:#e7eaf2;--muted:#939dae;--sub:#b3bdcd;--border:#303642;--accent:#9aafff;--soft:#283454;--life:#191e28;--hover:#262d39;--brand:#e7eaf2;--on-brand:#171a21;--primary:#87a3ff;--on-primary:#101a37;--neutral-soft:#2b3240;--success:#6bbca0;--warning:#d6ae70;--error:#f19391;--bm-marker:#8fd0a8;color-scheme:dark}
 
-@media(prefers-color-scheme:dark){:root[data-theme=system]{--bg:#13161c;--card:#1d2129;--text:#e7eaf2;--muted:#939dae;--sub:#b3bdcd;--border:#303642;--accent:#9aafff;--soft:#283454;--life:#191e28;--hover:#262d39;--brand:#e7eaf2;--on-brand:#171a21;--primary:#87a3ff;--on-primary:#101a37;--neutral-soft:#2b3240;--success:#6bbca0;--warning:#d6ae70;--error:#f19391;color-scheme:dark}
+@media(prefers-color-scheme:dark){:root[data-theme=system]{--bg:#13161c;--card:#1d2129;--text:#e7eaf2;--muted:#939dae;--sub:#b3bdcd;--border:#303642;--accent:#9aafff;--soft:#283454;--life:#191e28;--hover:#262d39;--brand:#e7eaf2;--on-brand:#171a21;--primary:#87a3ff;--on-primary:#101a37;--neutral-soft:#2b3240;--success:#6bbca0;--warning:#d6ae70;--error:#f19391;--bm-marker:#8fd0a8;color-scheme:dark}
 }
 
 *{box-sizing:border-box}
@@ -374,9 +374,9 @@ dialog input:disabled{opacity:.5}
 .weather-results small{display:block;color:var(--muted);font-size:10px}
 
 /* Bookmark card: the same editorial paper surface as the weather card. */
-.bookmark-card{--bm-paper:#faf9f6;--bm-ink:#222321;--bm-muted:#6c6d68;--bm-line:#dedfd9;--bm-accent:#df601d;--bm-soft:#efeee8;container-type:inline-size;background:var(--bm-paper);color:var(--bm-ink);border-color:var(--bm-line);border-radius:18px;box-shadow:0 2px 8px #20241c04}
-:root[data-theme=dark] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-accent:#f6bc45;--bm-soft:#2a2d2a}
-@media(prefers-color-scheme:dark){:root[data-theme=system] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-accent:#f6bc45;--bm-soft:#2a2d2a}}
+.bookmark-card{--bm-paper:#faf9f6;--bm-ink:#222321;--bm-muted:#6c6d68;--bm-line:#dedfd9;--bm-accent:var(--bm-marker);--bm-soft:#efeee8;container-type:inline-size;background:var(--bm-paper);color:var(--bm-ink);border-color:var(--bm-line);border-radius:18px;box-shadow:0 2px 8px #20241c04}
+:root[data-theme=dark] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-soft:#2a2d2a}
+@media(prefers-color-scheme:dark){:root[data-theme=system] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-soft:#2a2d2a}}
 .bookmark-card .card-header{border:0;position:relative}
 .bookmark-card .card-header::after{content:"";position:absolute;inset:auto 16px 0;height:1px;background:var(--bm-line)}
 .bookmark-card .source-icon.bookmark{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
@@ -395,9 +395,7 @@ dialog input:disabled{opacity:.5}
 .bookmark-card .item-list li::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:16px;background:var(--bm-accent)}
 .bookmark-card .bookmark-rule{position:absolute;left:12px;bottom:0;width:44px;border-bottom:1px dashed var(--bm-line)}
 .bookmark-card .item-list li:nth-last-child(1) .bookmark-rule{display:none}
-.bookmark-icon{display:inline-grid;place-items:center;width:16px;height:16px;flex:none;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
-.bookmark-icon svg{display:block;width:12px;height:12px}
-.bookmark-card .bookmark-icon{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
+.bookmark-glyph{display:inline-grid;place-items:center;width:16px;height:16px;flex:none;border-radius:5px;background:color-mix(in srgb,var(--bm-marker) 14%,transparent);color:var(--bm-marker);font-size:11px;font-weight:650;line-height:1}
 .bookmark-card .item-title{font-weight:650}
 /* Same quiet 10px footer credit as "Open-Meteo" on the "此刻" card, kept on the left. */
 .bookmark-card .card-footer>div{gap:8px}
