@@ -418,59 +418,107 @@ try {
     await page.locator('#source-type').selectOption('bookmark');
     assert.equal(await page.locator('#source-form [name="name"]').inputValue(), '我的书签');
     assert.equal(await page.locator('#source-form [name="category"]').inputValue(), '导航');
+    assert.equal(await page.locator('#source-form [name="limit"]').getAttribute('max'), '10');
     assert.equal(await page.locator('#url-fields').isHidden(), true);
     assert.equal(await page.locator('#source-form [name="refreshMinutes"]').isDisabled(), true);
     await page.getByRole('button', { name: '添加到看板', exact: true }).click();
-    await page.locator('[data-type="bookmark"] .empty-card').waitFor();
+    const bookmarkCard = page.locator('[data-type="bookmark"]');
+    await bookmarkCard.locator('.empty-card').waitFor();
     assert.equal(await page.locator('[data-action="save"]').count(), 0, 'Legacy save-for-later stars are gone');
+    // The bookmark card shares the weather card's paper surface in both themes.
+    assert.equal(await bookmarkCard.evaluate(el => el.classList.contains('bookmark-card')), true);
+    const paper = await page.evaluate(() => {
+      const read = () => [document.querySelector('[data-type="weather"]'), document.querySelector('[data-type="bookmark"]')]
+        .map(el => getComputedStyle(el).backgroundColor);
+      const light = read();
+      document.documentElement.dataset.theme = 'dark';
+      const dark = read();
+      document.documentElement.dataset.theme = 'system';
+      return { light, dark };
+    });
+    assert.equal(paper.light[0], paper.light[1], 'light paper matches the weather card');
+    assert.equal(paper.dark[0], paper.dark[1], 'dark paper matches the weather card');
+    log.push('Bookmark card reuses the weather card paper surface in light and dark themes.');
     // Add a URL from the card itself; a bare host is normalized to https.
-    await page.locator('[data-type="bookmark"] [data-action="bookmark-add"]').first().click();
+    await bookmarkCard.locator('[data-action="bookmark-add"]').first().click();
     await page.locator('#bookmark-form [name="title"]').fill('MDN');
     await page.locator('#bookmark-form [name="url"]').fill('developer.mozilla.org');
     await page.locator('#bookmark-form [name="note"]').fill('Web 文档');
     await page.locator('#save-bookmark').click();
-    const firstLink = page.locator('[data-type="bookmark"] .item-title').first();
+    const firstLink = bookmarkCard.locator('.item-title').first();
     await firstLink.waitFor();
     assert.equal(await firstLink.getAttribute('href'), 'https://developer.mozilla.org/');
     assert.equal(await firstLink.getAttribute('target'), '_blank');
     assert.equal(await firstLink.innerText(), 'MDN');
-    assert.equal(await page.locator('[data-type="bookmark"] .bookmark-total').innerText(), '1 条');
+    assert.equal(await bookmarkCard.locator('.bookmark-total').innerText(), '1 条');
+    assert.ok(Number(await firstLink.evaluate(el => getComputedStyle(el).fontWeight)) >= 600, 'bookmark titles are bold');
+    assert.equal(await bookmarkCard.locator('[data-action="bookmark-edit"], [data-action="bookmark-delete"]').count(), 0,
+      'card rows no longer render edit/delete buttons');
     // Unsafe schemes are rejected without changing the list.
-    await page.locator('[data-type="bookmark"] [data-action="bookmark-add"]').first().click();
+    await bookmarkCard.locator('[data-action="bookmark-add"]').first().click();
     await page.locator('#bookmark-form [name="url"]').fill('javascript:alert(1)');
     await page.locator('#save-bookmark').click();
     await page.getByText('请输入有效的网址', { exact: false }).waitFor();
-    assert.equal(await page.locator('[data-type="bookmark"] .item-list li').count(), 1);
+    assert.equal(await bookmarkCard.locator('.item-list li').count(), 1);
     await page.locator('#bookmark-dialog .close').first().click();
     // Second URL via the card footer.
-    await page.locator('[data-type="bookmark"] [data-action="bookmark-add"]').first().click();
+    await bookmarkCard.locator('[data-action="bookmark-add"]').first().click();
     await page.locator('#bookmark-form [name="title"]').fill('示例站');
     await page.locator('#bookmark-form [name="url"]').fill('https://example.com/docs');
     await page.locator('#save-bookmark').click();
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
-    // Edit the first bookmark's title and URL in place.
-    const mdnRow = page.locator('[data-type="bookmark"] .item-list li').filter({ hasText: 'MDN' });
-    await mdnRow.locator('[data-action="bookmark-edit"]').click();
+    // "查看全部" is now "书签管理"; editing and deleting live in this dialog.
+    assert.match(await bookmarkCard.locator('[data-action="read"]').innerText(), /书签管理/);
+    await bookmarkCard.locator('[data-action="read"]').click();
+    assert.match(await page.locator('#reader-subtitle').innerText(), /拖动排序/);
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list li').count(), 2);
+    assert.equal(await page.locator('#reader-content [data-action="bookmark-edit"]').count(), 2);
+    const rows = page.locator('#reader-content .bookmark-manage-list li');
+    await rows.filter({ hasText: 'MDN' }).locator('[data-action="bookmark-edit"]').click();
     assert.equal(await page.locator('#bookmark-form [name="url"]').inputValue(), 'https://developer.mozilla.org/');
     await page.locator('#bookmark-form [name="title"]').fill('MDN 中文');
     await page.locator('#bookmark-form [name="url"]').fill('https://developer.mozilla.org/zh-CN/');
     await page.locator('#save-bookmark').click();
-    await page.waitForFunction(() => [...document.querySelectorAll('[data-type="bookmark"] .item-title')]
+    await page.waitForFunction(() => [...document.querySelectorAll('#reader-content .item-title')]
       .some(a => a.textContent === 'MDN 中文' && a.getAttribute('href') === 'https://developer.mozilla.org/zh-CN/'));
-    // Delete from the card.
-    await page.locator('[data-type="bookmark"] .item-list li').filter({ hasText: '示例站' }).locator('[data-action="bookmark-delete"]').click();
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 1);
+    await rows.filter({ hasText: '示例站' }).locator('[data-action="bookmark-delete"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#reader-content .bookmark-manage-list li').length === 1);
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === 'MDN 中文');
-    // The full reader also manages all entries, including adding a new one.
-    await page.locator('[data-type="bookmark"] [data-action="read"]').click();
-    assert.equal(await page.locator('#reader-content .item-list li').count(), 1);
-    await page.locator('#reader-content [data-action="bookmark-add"]').click();
-    await page.locator('#bookmark-form [name="title"]').fill('GitHub');
-    await page.locator('#bookmark-form [name="url"]').fill('https://github.com');
-    await page.locator('#save-bookmark').click();
-    await page.waitForFunction(() => document.querySelectorAll('#reader-content .item-list li').length === 2);
+    // Six entries switch the card to two columns.
+    await page.evaluate(async () => {
+      const { saveBookmarks } = await import('./src/storage.js');
+      await saveBookmarks(Array.from({ length: 6 }, (_, i) => ({ id: `b${i}`, title: `站点 ${i}`, url: `https://site${i}.example/` })));
+    });
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 6);
+    assert.equal(await bookmarkCard.locator('.item-list.two-col').count(), 1, 'more than 5 entries render two columns');
+    assert.equal(await bookmarkCard.locator('.item-list.two-col').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 2);
+    assert.equal(await bookmarkCard.locator('[data-action="bookmark-edit"], [data-action="bookmark-delete"]').count(), 0);
+    // Drag the last row to the top; the new order must survive a reload.
+    await bookmarkCard.locator('[data-action="read"]').click();
+    const sixRows = page.locator('#reader-content .bookmark-manage-list li');
+    await sixRows.nth(5).dragTo(sixRows.nth(0));
+    await page.waitForFunction(() => document.querySelector('#reader-content .bookmark-manage-list .item-title')?.textContent === '站点 5');
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 5');
+    log.push('Bookmark manager: label, in-dialog edit/delete, two-column layout above 5 entries and drag-to-reorder persistence verified.');
+    // The 10-entry cap is enforced by the add form.
+    await page.evaluate(async () => {
+      const { saveBookmarks } = await import('./src/storage.js');
+      await saveBookmarks(Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, title: `收藏 ${i}`, url: `https://c${i}.example/` })));
+    });
+    await page.reload();
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
+    await bookmarkCard.locator('[data-action="bookmark-add"]').first().click();
+    await page.locator('#bookmark-form [name="url"]').fill('https://overflow.example/');
+    await page.locator('#save-bookmark').click();
+    await page.waitForFunction(() => document.querySelector('#bookmark-error')?.textContent.includes('最多 10 条'));
+    assert.equal(await bookmarkCard.locator('.item-list li').count(), 10);
+    await page.locator('#bookmark-dialog .close').first().click();
+    log.push('Bookmark cap of 10 entries is enforced by the add form.');
     // Export carries the URLs; importing restores them after local data is wiped.
     await page.getByRole('button', { name: '外观与设置' }).click();
     const bookmarkDownload = page.waitForEvent('download');
@@ -478,29 +526,28 @@ try {
     const bookmarkFile = await bookmarkDownload;
     await bookmarkFile.saveAs('artifacts/bookmark-export.json');
     const exported = JSON.parse(await readFile('artifacts/bookmark-export.json', 'utf8'));
-    assert.equal(exported.bookmarks.length, 2);
+    assert.equal(exported.bookmarks.length, 10);
     assert.equal(exported.version, 1, 'export top level is still a version-1 config');
     assert.equal(exported.sources.length, 6);
     assert.deepEqual(Object.keys(exported).sort(), ['bookmarks', 'columns', 'sources', 'theme', 'version']);
-    assert.ok(exported.bookmarks.some(b => b.title === 'MDN 中文' && b.url === 'https://developer.mozilla.org/zh-CN/'));
     await page.evaluate(async () => { const { saveBookmarks } = await import('./src/storage.js'); await saveBookmarks([]); });
     await page.locator('#import-file').setInputFiles('artifacts/bookmark-export.json');
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
     // A legacy config file (no bookmarks field) must not wipe local bookmarks.
     const legacyConfig = { ...exported }; delete legacyConfig.bookmarks;
     await page.getByRole('button', { name: '外观与设置' }).click();
     await page.locator('#import-file').setInputFiles({ name: 'legacy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacyConfig)) });
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
     // A malformed bookmarks field must not break the config import either.
     await page.getByRole('button', { name: '外观与设置' }).click();
     await page.locator('#import-file').setInputFiles({ name: 'bad-bookmarks.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...legacyConfig, bookmarks: 'oops' })) });
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
     assert.equal(await page.locator('.card').count(), 6);
-    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 10);
     log.push('Legacy config without bookmarks keeps local URLs; a malformed bookmarks field does not break config import.');
-    log.push('Bookmark card CRUD: add/edit/delete URLs in card and reader, URL normalization, unsafe scheme rejection, reload persistence and export/import round trip verified.');
+    log.push('Bookmark card: paper background, bold titles, no inline action buttons, 10-entry cap, two columns and export/import round trip verified.');
   }
   assert.deepEqual(failures, []);
   log.push('390px layout has no horizontal overflow; no uncaught page errors.');

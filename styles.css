@@ -58,7 +58,8 @@ main{max-width:1900px;margin:auto;padding:24px 24px 0}
 .bookmark-add-link{font-size:11px;color:var(--accent);white-space:nowrap}
 .bookmark-add-link:hover{text-decoration:underline;text-underline-offset:3px}
 .bookmark-total{font-size:11px;color:var(--sub);white-space:nowrap}
-.bookmark-reader-actions{display:flex;justify-content:flex-end;padding:10px 16px 4px;border-top:1px solid var(--border)}
+.bookmark-reader-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px 4px;border-top:1px solid var(--border)}
+.bookmark-manage-hint{font-size:11px;color:var(--muted);line-height:1.6;margin:0}
 .card-heading{min-width:0}
 .card-heading h2{font-size:15px;font-weight:650;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-heading>span{display:block;font-size:11px;color:var(--muted);margin-top:2px}
@@ -371,3 +372,32 @@ dialog input:disabled{opacity:.5}
 .weather-results button{text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.6}
 .weather-results button:hover{background:var(--soft)}
 .weather-results small{display:block;color:var(--muted);font-size:10px}
+
+/* Bookmark card: the same editorial paper surface as the weather card. */
+.bookmark-card{--bm-paper:#faf9f6;--bm-ink:#222321;--bm-muted:#6c6d68;--bm-line:#dedfd9;--bm-accent:#df601d;--bm-soft:#efeee8;container-type:inline-size;background:var(--bm-paper);color:var(--bm-ink);border-color:var(--bm-line);border-radius:18px;box-shadow:0 2px 8px #20241c04}
+:root[data-theme=dark] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-accent:#f6bc45;--bm-soft:#2a2d2a}
+@media(prefers-color-scheme:dark){:root[data-theme=system] .bookmark-card{--bm-paper:#202221;--bm-ink:#f4f1e9;--bm-muted:#b0b1a9;--bm-line:#444741;--bm-accent:#f6bc45;--bm-soft:#2a2d2a}}
+.bookmark-card .card-header{border:0;position:relative}
+.bookmark-card .card-header::after{content:"";position:absolute;inset:auto 16px 0;height:1px;background:var(--bm-line)}
+.bookmark-card .source-icon.bookmark{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
+.bookmark-card .card-heading>span{color:var(--bm-muted)}
+.bookmark-card .icon-button{color:var(--bm-muted)}
+.bookmark-card .icon-button:hover{background:color-mix(in srgb,var(--bm-ink) 7%,transparent);color:var(--bm-ink)}
+.bookmark-card .card-footer{border-color:var(--bm-line)}
+.bookmark-card .update-status,.bookmark-card .card-footer a,.bookmark-card .bookmark-total{color:var(--bm-muted)}
+.bookmark-card .bookmark-add-link,.bookmark-card .content-more{color:var(--bm-accent)}
+.bookmark-card .empty-card h3,.bookmark-card .empty-card p,.bookmark-card .empty-card small{color:var(--bm-muted)}
+.bookmark-card .button.secondary{border-color:var(--bm-line);background:transparent;color:var(--bm-ink)}
+.bookmark-card .item-list{padding:10px 12px}
+.bookmark-card .item-list li,.bookmark-card .item-list li+li{border:0;border-radius:9px;padding:6px 10px;gap:8px;min-height:34px}
+.bookmark-card .item-list li:hover{background:var(--bm-soft)}
+.bookmark-card .item-title{font-weight:650}
+.bookmark-card .rank{font-weight:600;color:var(--bm-muted)}
+.bookmark-card .item-list.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:6px;align-content:start}
+.bookmark-card .item-list.two-col li{min-width:0}
+#reader-content .bookmark-manage-list li{align-items:center;flex-wrap:nowrap;padding:9px 8px;border-radius:8px;cursor:grab}
+#reader-content .bookmark-manage-list li:active{cursor:grabbing}
+#reader-content .bookmark-manage-list li:hover{background:var(--hover)}
+#reader-content .bookmark-manage-list li.dragging{opacity:.45}
+#reader-content .bookmark-manage-list .item-title{font-weight:650}
+#reader-content .bookmark-manage-list a{-webkit-user-drag:none}

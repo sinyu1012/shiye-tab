@@ -62,14 +62,16 @@ test('天气城市配置校验、缓存隔离与数据解析', async () => {
 
 
 test('网址书签类型、URL 规范化与字段清洗', async () => {
-  const { TYPES, validateConfig, validateBookmarkItem, normalizeBookmarkUrl, BOOKMARKS_MAX } = await import('../src/model.js');
+  const { TYPES, validateConfig, validateBookmarkItem, normalizeBookmarkUrl, BOOKMARKS_MAX, BOOKMARKS_TWO_COL_AFTER } = await import('../src/model.js');
   assert.ok(TYPES.includes('bookmark'));
   assert.equal(validateConfig(cloneDefaults()).sources.length, 5);
   const c = cloneDefaults();
-  c.sources.push({ id: 'links', type: 'bookmark', name: '我的书签', category: '导航', limit: 12, refreshMinutes: 60 });
+  c.sources.push({ id: 'links', type: 'bookmark', name: '我的书签', category: '导航', limit: 30, refreshMinutes: 60 });
   const source = validateConfig(c).sources.at(-1);
   assert.equal(source.type, 'bookmark');
-  assert.equal(source.limit, 12);
+  assert.equal(source.limit, 10, 'bookmark card display count is capped with the storage cap');
+  c.sources.at(-1).limit = 3;
+  assert.equal(validateConfig(c).sources.at(-1).limit, 3);
   assert.equal(source.url, '');
   assert.equal(normalizeBookmarkUrl('example.com'), 'https://example.com/');
   assert.equal(normalizeBookmarkUrl('localhost:3000/docs'), 'https://localhost:3000/docs');
@@ -87,7 +89,8 @@ test('网址书签类型、URL 规范化与字段清洗', async () => {
   assert.equal(typeof item.createdAt, 'number');
   assert.equal(item.updatedAt, 1);
   assert.equal(validateBookmarkItem({ url: 'https://example.org' }).title, 'example.org');
-  assert.equal(BOOKMARKS_MAX, 200);
+  assert.equal(BOOKMARKS_MAX, 10);
+  assert.equal(BOOKMARKS_TWO_COL_AFTER, 5);
 });
 
 test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', async () => {
@@ -123,9 +126,9 @@ test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', a
       { title: 'A', url: 'https://a.example/' }, { title: 'A2', url: 'https://a.example/' },
     ]));
     assert.deepEqual((await getBookmarks()).map(b => b.title), ['A'], 'invalid and duplicate entries are dropped on read');
-    const many = Array.from({ length: 205 }, (_, i) => ({ title: `条目 ${i}`, url: `https://example.com/${i}` }));
-    assert.equal((await saveBookmarks(many)).length, 200);
-    assert.equal((await getBookmarks()).length, 200);
+    const many = Array.from({ length: 12 }, (_, i) => ({ title: `条目 ${i}`, url: `https://example.com/${i}` }));
+    assert.equal((await saveBookmarks(many)).length, 10);
+    assert.equal((await getBookmarks()).length, 10);
     await assert.rejects(() => addBookmark({ title: '溢出', url: 'https://overflow.example/' }), /最多/);
     await saveBookmarks([
       { title: 'A', url: 'https://a.example/' },
@@ -174,7 +177,27 @@ test('导入载荷兼容旧格式、新格式与脏字段', async () => {
   ] });
   assert.deepEqual(dirty.bookmarks.map(b => b.url), ['https://example.com/'], 'invalid, unsafe and duplicate URLs are dropped');
   assert.deepEqual(parseImportPayload({ ...legacy, bookmarks: [] }).bookmarks, [], 'empty array is an explicit empty state');
-  const many = Array.from({ length: 205 }, (_, i) => ({ title: `t${i}`, url: `https://e.example/${i}` }));
+  const many = Array.from({ length: 12 }, (_, i) => ({ title: `t${i}`, url: `https://e.example/${i}` }));
   assert.equal(parseImportPayload({ ...legacy, bookmarks: many }).bookmarks.length, BOOKMARKS_MAX);
   assert.throws(() => parseImportPayload({ ...legacy, version: 2 }), /配置格式无效/);
+});
+
+
+test('书签顺序可持久化，并反映到卡片数据（拖动排序基础）', async () => {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: k => store.has(k) ? store.get(k) : null,
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: k => store.delete(k),
+  };
+  try {
+    const { saveBookmarks } = await import('../src/storage.js');
+    const { loadSource } = await import('../src/sources.js');
+    const { BOOKMARKS_TWO_COL_AFTER } = await import('../src/model.js');
+    assert.equal(BOOKMARKS_TWO_COL_AFTER, 5, 'two-column layout starts above 5 entries');
+    const items = ['A', 'B', 'C'].map(t => ({ id: t, title: t, url: `https://${t.toLowerCase()}.example/` }));
+    await saveBookmarks(items);
+    await saveBookmarks([items[2], items[0], items[1]]);
+    assert.deepEqual((await loadSource({ type: 'bookmark', limit: 10 })).items.map(i => i.title), ['C', 'A', 'B']);
+  } finally { delete globalThis.localStorage; }
 });
