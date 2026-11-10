@@ -425,6 +425,12 @@ try {
     const bookmarkCard = page.locator('[data-type="bookmark"]');
     await bookmarkCard.locator('.empty-card').waitFor();
     assert.equal(await page.locator('[data-action="save"]').count(), 0, 'Legacy save-for-later stars are gone');
+    // The footer entry opens the manager even before the first URL is added.
+    assert.match(await bookmarkCard.locator('.card-footer [data-action="read"]').innerText(), /书签管理/);
+    await bookmarkCard.locator('.card-footer [data-action="read"]').click();
+    assert.equal(await page.locator('#reader-dialog').evaluate(el => el.open), true);
+    assert.equal(await page.locator('#reader-content [data-action="bookmark-add"]').count(), 1);
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     // The bookmark card shares the weather card's paper surface in both themes.
     assert.equal(await bookmarkCard.evaluate(el => el.classList.contains('bookmark-card')), true);
     const paper = await page.evaluate(() => {
@@ -467,8 +473,23 @@ try {
     await page.locator('#bookmark-form [name="url"]').fill('https://example.com/docs');
     await page.locator('#save-bookmark').click();
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
-    // "查看全部" is now "书签管理"; editing and deleting live in this dialog.
-    assert.match(await bookmarkCard.locator('[data-action="read"]').innerText(), /书签管理/);
+    // "书签管理" replaces the "刚刚更新" status in the card footer; editing and deleting live in the dialog.
+    const footerStatus = bookmarkCard.locator('.card-footer .update-status');
+    assert.match(await footerStatus.innerText(), /书签管理/);
+    assert.doesNotMatch(await footerStatus.innerText(), /更新/);
+    assert.equal(await bookmarkCard.locator('[data-action="read"]').count(), 1, 'only one manager entry lives in the footer');
+    // Rows are divided by the same paper-toned rule used by the "此刻" card.
+    const rowRule = await bookmarkCard.locator('.item-list li').evaluateAll(rows => rows.map(r => {
+      const s = getComputedStyle(r);
+      return { top: s.borderTopWidth, color: s.borderTopColor, radius: s.borderTopLeftRadius };
+    }));
+    const weatherRule = await page.locator('.weather-metrics').evaluate(el => {
+      const s = getComputedStyle(el); return { top: s.borderTopWidth, color: s.borderTopColor };
+    });
+    assert.equal(rowRule[0].top, '0px', 'first row has no top rule; the header rule sits above it');
+    assert.equal(rowRule[1].top, weatherRule.top);
+    assert.equal(rowRule[1].color, weatherRule.color, 'row rule matches the "此刻" card line color');
+    assert.equal(rowRule[1].radius, '0px');
     await bookmarkCard.locator('[data-action="read"]').click();
     assert.match(await page.locator('#reader-subtitle').innerText(), /拖动排序/);
     assert.equal(await page.locator('#reader-content .bookmark-manage-list li').count(), 2);
@@ -495,6 +516,20 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 6);
     assert.equal(await bookmarkCard.locator('.item-list.two-col').count(), 1, 'more than 5 entries render two columns');
     assert.equal(await bookmarkCard.locator('.item-list.two-col').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 2);
+    // Two-column mode adds a vertical rule between columns and horizontal rules between rows.
+    const gridRule = await bookmarkCard.locator('.item-list.two-col li').evaluateAll(rows => rows.map(r => {
+      const s = getComputedStyle(r);
+      return { top: s.borderTopWidth, left: s.borderLeftWidth, color: s.borderTopColor, leftColor: s.borderLeftColor };
+    }));
+    const weatherVertical = await page.locator('.weather-metrics>div+div').first().evaluate(el => {
+      const s = getComputedStyle(el); return { left: s.borderLeftWidth, color: s.borderLeftColor };
+    });
+    assert.equal(gridRule[0].top, '0px');
+    assert.equal(gridRule[1].top, '0px', 'the first row is not split horizontally');
+    assert.equal(gridRule[2].top, '1px', 'later rows get horizontal rules');
+    assert.equal(gridRule[0].left, '0px', 'left column has no vertical rule');
+    assert.equal(gridRule[1].left, weatherVertical.left, 'right column uses the "此刻" vertical rule');
+    assert.equal(gridRule[1].leftColor, weatherVertical.color);
     assert.equal(await bookmarkCard.locator('[data-action="bookmark-edit"], [data-action="bookmark-delete"]').count(), 0);
     // Drag the last row to the top; the new order must survive a reload.
     await bookmarkCard.locator('[data-action="read"]').click();
@@ -504,7 +539,7 @@ try {
     await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
     await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '站点 5');
-    log.push('Bookmark manager: label, in-dialog edit/delete, two-column layout above 5 entries and drag-to-reorder persistence verified.');
+    log.push('Bookmark manager: footer entry replaces the update status, paper-toned row/column rules match the "此刻" card, in-dialog edit/delete, two-column layout above 5 entries and drag-to-reorder persistence verified.');
     // The 10-entry cap is enforced by the add form.
     await page.evaluate(async () => {
       const { saveBookmarks } = await import('./src/storage.js');

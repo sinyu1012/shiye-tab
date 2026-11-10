@@ -388,13 +388,20 @@ dialog input:disabled{opacity:.5}
 .bookmark-card .bookmark-add-link,.bookmark-card .content-more{color:var(--bm-accent)}
 .bookmark-card .empty-card h3,.bookmark-card .empty-card p,.bookmark-card .empty-card small{color:var(--bm-muted)}
 .bookmark-card .button.secondary{border-color:var(--bm-line);background:transparent;color:var(--bm-ink)}
-.bookmark-card .item-list{padding:10px 12px}
-.bookmark-card .item-list li,.bookmark-card .item-list li+li{border:0;border-radius:9px;padding:6px 10px;gap:8px;min-height:34px}
-.bookmark-card .item-list li:hover{background:var(--bm-soft)}
+/* Paper-toned rules separate rows and columns, echoing the "此刻" card. */
+.bookmark-card .item-list{padding:0 16px}
+.bookmark-card .item-list li{border:0;border-radius:0;padding:8px 0;gap:8px;min-height:36px;align-items:center}
+.bookmark-card .item-list li+li{border-top:1px solid var(--bm-line)}
+.bookmark-card .item-list li:hover{background:color-mix(in srgb,var(--bm-soft) 65%,transparent)}
 .bookmark-card .item-title{font-weight:650}
 .bookmark-card .rank{font-weight:600;color:var(--bm-muted)}
-.bookmark-card .item-list.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:6px;align-content:start}
-.bookmark-card .item-list.two-col li{min-width:0}
+.bookmark-card .update-status.bookmark-manage-link{padding:0;font-size:11px;color:var(--bm-accent);white-space:nowrap}
+.bookmark-card .update-status.bookmark-manage-link:hover{text-decoration:underline;text-underline-offset:3px}
+.bookmark-card .item-list.two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:0;align-content:start}
+.bookmark-card .item-list.two-col li{min-width:0;padding-right:8px}
+.bookmark-card .item-list.two-col li+li{border-top:0}
+.bookmark-card .item-list.two-col li:nth-child(n+3){border-top:1px solid var(--bm-line)}
+.bookmark-card .item-list.two-col li:nth-child(even){border-left:1px solid var(--bm-line);padding-left:8px}
 #reader-content .bookmark-manage-list li{align-items:center;flex-wrap:nowrap;padding:9px 8px;border-radius:8px;cursor:grab}
 #reader-content .bookmark-manage-list li:active{cursor:grabbing}
 #reader-content .bookmark-manage-list li:hover{background:var(--hover)}
