@@ -395,10 +395,11 @@ dialog input:disabled{opacity:.5}
 .bookmark-card .item-list li::before{content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);width:2px;height:16px;background:var(--bm-accent)}
 .bookmark-card .bookmark-rule{position:absolute;left:12px;bottom:0;width:44px;border-bottom:1px dashed var(--bm-line)}
 .bookmark-card .item-list li:nth-last-child(1) .bookmark-rule{display:none}
-.bookmark-glyph{display:inline-grid;place-items:center;width:16px;height:16px;flex:none;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-size:11px;font-weight:650;line-height:1}
-.bookmark-card .bookmark-glyph{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
+.bookmark-icon{display:inline-grid;place-items:center;width:16px;height:16px;flex:none;border-radius:5px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.bookmark-icon svg{display:block;width:12px;height:12px}
+.bookmark-card .bookmark-icon{background:color-mix(in srgb,var(--bm-accent) 14%,transparent);color:var(--bm-accent)}
 .bookmark-card .item-title{font-weight:650}
-/* Same quiet 10px footer credit as "Open-Meteo" on the "此刻" card, kept on the right. */
+/* Same quiet 10px footer credit as "Open-Meteo" on the "此刻" card, kept on the left. */
 .bookmark-card .card-footer>div{gap:8px}
 .bookmark-card .update-status.bookmark-manage-link{padding:0;font-size:10px;color:var(--bm-muted);white-space:nowrap}
 .bookmark-card .update-status.bookmark-manage-link:hover{color:var(--bm-accent)}
