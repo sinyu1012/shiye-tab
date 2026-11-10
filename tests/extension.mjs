@@ -479,11 +479,27 @@ try {
     await bookmarkFile.saveAs('artifacts/bookmark-export.json');
     const exported = JSON.parse(await readFile('artifacts/bookmark-export.json', 'utf8'));
     assert.equal(exported.bookmarks.length, 2);
+    assert.equal(exported.version, 1, 'export top level is still a version-1 config');
+    assert.equal(exported.sources.length, 6);
+    assert.deepEqual(Object.keys(exported).sort(), ['bookmarks', 'columns', 'sources', 'theme', 'version']);
     assert.ok(exported.bookmarks.some(b => b.title === 'MDN 中文' && b.url === 'https://developer.mozilla.org/zh-CN/'));
     await page.evaluate(async () => { const { saveBookmarks } = await import('./src/storage.js'); await saveBookmarks([]); });
     await page.locator('#import-file').setInputFiles('artifacts/bookmark-export.json');
     await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    // A legacy config file (no bookmarks field) must not wipe local bookmarks.
+    const legacyConfig = { ...exported }; delete legacyConfig.bookmarks;
+    await page.getByRole('button', { name: '外观与设置' }).click();
+    await page.locator('#import-file').setInputFiles({ name: 'legacy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(legacyConfig)) });
+    await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    // A malformed bookmarks field must not break the config import either.
+    await page.getByRole('button', { name: '外观与设置' }).click();
+    await page.locator('#import-file').setInputFiles({ name: 'bad-bookmarks.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...legacyConfig, bookmarks: 'oops' })) });
+    await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
+    assert.equal(await page.locator('.card').count(), 6);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    log.push('Legacy config without bookmarks keeps local URLs; a malformed bookmarks field does not break config import.');
     log.push('Bookmark card CRUD: add/edit/delete URLs in card and reader, URL normalization, unsafe scheme rejection, reload persistence and export/import round trip verified.');
   }
   assert.deepEqual(failures, []);

@@ -1,4 +1,4 @@
-import { cloneDefaults, validateConfig, sourceUrl, validateBookmarkItem, normalizeBookmarkUrl, BOOKMARKS_KEY, BOOKMARKS_MAX } from './model.js';
+import { cloneDefaults, validateConfig, sourceUrl, validateBookmarkItem, normalizeBookmarkUrl, cleanBookmarks, BOOKMARKS_KEY, BOOKMARKS_MAX } from './model.js';
 export const extension = Boolean(globalThis.chrome?.storage?.local);
 export async function read(key) {
   if (extension) return (await chrome.storage.local.get(key))[key];
@@ -45,17 +45,11 @@ export function permission(url, request = false) {
   const options = { origins: [`${u.protocol}//${u.hostname}/*`] };
   return request ? chrome.permissions.request(options) : chrome.permissions.contains(options);
 }
-function unique(items) {
-  const seen = new Set();
-  return items.filter(item => { if (seen.has(item.url)) return false; seen.add(item.url); return true; });
-}
 export async function getBookmarks() {
-  const saved = await read(BOOKMARKS_KEY);
-  if (!Array.isArray(saved)) return [];
-  return unique(saved.map(validateBookmarkItem).filter(Boolean)).slice(0, BOOKMARKS_MAX);
+  return cleanBookmarks(await read(BOOKMARKS_KEY));
 }
 export async function saveBookmarks(items) {
-  const clean = unique(items.map(validateBookmarkItem).filter(Boolean)).slice(0, BOOKMARKS_MAX);
+  const clean = cleanBookmarks(items);
   await write(BOOKMARKS_KEY, clean);
   return clean;
 }

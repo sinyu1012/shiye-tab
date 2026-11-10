@@ -61,6 +61,35 @@ export function validateBookmarkItem(input) {
     createdAt: Number.isFinite(input.createdAt) ? input.createdAt : now,
     updatedAt: Number.isFinite(input.updatedAt) ? input.updatedAt : now };
 }
+// The backup field deliberately shares the storage key so both always agree.
+export const BOOKMARKS_FIELD = BOOKMARKS_KEY;
+// An export stays a valid version-1 config at the top level; bookmarks are an
+// OPTIONAL extra field. Older builds ignore unknown keys in validateConfig(),
+// so they can still import a file produced by this version.
+export function cleanBookmarks(items) {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  const clean = [];
+  for (const item of items) {
+    const valid = validateBookmarkItem(item);
+    if (!valid || seen.has(valid.url)) continue;
+    seen.add(valid.url);
+    clean.push(valid);
+    if (clean.length >= BOOKMARKS_MAX) break;
+  }
+  return clean;
+}
+export function buildExportPayload(config, bookmarks) {
+  return { ...validateConfig(config), [BOOKMARKS_FIELD]: cleanBookmarks(bookmarks) };
+}
+// bookmarks === null: legacy file without the field -> keep local bookmarks untouched.
+// bookmarks === []  : explicit empty state -> replace local bookmarks.
+export function parseImportPayload(payload) {
+  return {
+    config: validateConfig(payload),
+    bookmarks: Array.isArray(payload?.[BOOKMARKS_FIELD]) ? cleanBookmarks(payload[BOOKMARKS_FIELD]) : null,
+  };
+}
 export function validateConfig(input) {
   if (!input || input.version !== 1 || !Array.isArray(input.sources) || input.sources.length > 40) throw new Error('配置格式无效，或超过 40 个数据源。');
   const ids = new Set();
