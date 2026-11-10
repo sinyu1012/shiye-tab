@@ -646,6 +646,59 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 12);
     log.push('Legacy config without bookmarks keeps local URLs; a malformed bookmarks field does not break config import.');
     log.push('Bookmark card: paper background, bold titles, no inline action buttons, 12-entry cap, two columns and export/import round trip verified.');
+    // Review follow-ups: a one-row preview must not hide bookmarks from search or the manager.
+    await page.evaluate(async () => {
+      const { saveBookmarks } = await import('./src/storage.js');
+      await saveBookmarks(Array.from({ length: 12 }, (_, i) => ({
+        id: `review-${i}`, title: `书签 ${i + 1}`, url: `https://example.com/bookmark/${i + 1}`,
+      })));
+    });
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .bookmark-total')?.textContent === '12 条');
+    await bookmarkCard.locator('[data-action="edit"]').click();
+    await page.locator('#source-form [name="limit"]').fill('1');
+    await page.getByRole('button', { name: '保存设置', exact: true }).click();
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 1);
+    assert.equal(await bookmarkCard.locator('[data-action="read"]').count(), 1, 'manager entry survives a one-row preview');
+    await bookmarkCard.locator('[data-action="read"]').click();
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list li').count(), 12, 'manager exposes every bookmark');
+    assert.equal(await page.locator('#reader-content [data-action="bookmark-edit"]').count(), 12);
+    await page.locator('#reader-content .bookmark-manage-list li').last().locator('[data-action="bookmark-edit"]').click();
+    assert.equal(await page.locator('#bookmark-form [name="url"]').inputValue(), 'https://example.com/bookmark/12');
+    await page.locator('#bookmark-dialog .close').first().click();
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+    await page.locator('#search').fill('书签 12');
+    assert.equal(await page.locator('[data-type="bookmark"] .item-title').innerText(), '书签 12', 'search reaches entries beyond the preview limit');
+    await page.locator('#search').fill('');
+    // Duplicate IDs from an imported backup are repaired so later edits/deletes stay isolated.
+    await page.getByRole('button', { name: '外观与设置' }).click();
+    await page.locator('#import-file').setInputFiles({
+      name: 'duplicate-bookmark-ids.json', mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({
+        ...exported,
+        sources: exported.sources.map(s => s.type === 'bookmark' ? { ...s, limit: 12 } : s),
+        bookmarks: [
+          { id: 'duplicate', title: '保留书签', url: 'https://keep.example/' },
+          { id: 'duplicate', title: '待修改书签', url: 'https://edit.example/' },
+        ],
+      })),
+    });
+    await page.waitForFunction(() => !document.querySelector('#settings-dialog').open);
+    await page.waitForFunction(() => document.querySelectorAll('[data-type="bookmark"] .item-list li').length === 2);
+    await bookmarkCard.locator('[data-action="read"]').click();
+    const dupRows = page.locator('#reader-content .bookmark-manage-list li');
+    await dupRows.filter({ hasText: '待修改书签' }).locator('[data-action="bookmark-edit"]').click();
+    assert.equal(await page.locator('#bookmark-form [name="url"]').inputValue(), 'https://edit.example/');
+    await page.locator('#bookmark-form [name="title"]').fill('修改完成');
+    await page.locator('#save-bookmark').click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#reader-content .bookmark-manage-list .item-title')].some(a => a.textContent === '修改完成'));
+    await dupRows.filter({ hasText: '修改完成' }).locator('[data-action="bookmark-delete"]').click();
+    await page.waitForFunction(() => document.querySelectorAll('#reader-content .bookmark-manage-list li').length === 1);
+    assert.equal(await page.locator('#reader-content .bookmark-manage-list .item-title').innerText(), '保留书签');
+    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('[data-type="bookmark"] .item-title')?.textContent === '保留书签');
+    log.push('Review fixes preserved: full list behind a one-row preview, search + manager access to every bookmark, duplicate IDs repaired on import.');
   }
   assert.deepEqual(failures, []);
   log.push('390px layout has no horizontal overflow; no uncaught page errors.');

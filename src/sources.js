@@ -98,7 +98,7 @@ export function parseJson(text, source) {
 }
 export async function loadSource(source) {
   if (source.type === 'bookmark') {
-    return { items: (await getBookmarks()).slice(0, source.limit), fetchedAt: Date.now() };
+    return { items: await getBookmarks(), fetchedAt: Date.now() };
   }
   if (source.type === 'weather') {
     const { loadWeather } = await import('./weather.js');

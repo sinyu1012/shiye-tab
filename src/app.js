@@ -97,7 +97,7 @@ function itemList(source, items, { className = '', actions = false, sortable = f
   return `<ol class="${listClass}"${sortable ? ' data-bookmark-sortable' : ''}>${items.map((i, index) => `<li${sortable ? ` draggable="true" data-bookmark-id="${esc(i.id)}"` : ''}>${lead(i, index)}${rules ? '<span class="bookmark-rule" aria-hidden="true"></span>' : ''}<div class="item-body">${link(i.url, esc(i.title), 'item-title')}${i.description ? `<p>${esc(i.description)}</p>` : ''}</div>${i.meta && source.type !== 'apple' ? `<span class="item-meta">${esc(i.meta)}</span>` : ''}${actions && source.type === 'bookmark' ? bookmarkActions(i) : ''}</li>`).join('')}</ol>`;
 }
 function readerMarkup(source, items) {
-  const content = source.type === 'life' ? lifeContent(items[0], true) : source.limit === 1 ? readingContent(items[0], true)
+  const content = source.type === 'life' ? lifeContent(items[0], true) : source.limit === 1 && source.type !== 'bookmark' ? readingContent(items[0], true)
     : source.type === 'bookmark' ? itemList(source, items, { className: 'bookmark-manage-list', actions: true, sortable: true }) : itemList(source, items);
   return content + (source.type === 'bookmark' ? '<div class="bookmark-reader-actions"><p class="bookmark-manage-hint">拖动条目可调整顺序，顺序保存在本机。</p><button class="button secondary" data-action="bookmark-add">＋ 添加网址</button></div>' : '');
 }
@@ -107,7 +107,7 @@ function openReader(source) {
   if (!items.length && source.type !== 'bookmark') return;
   readerSource = source;
   $('#reader-title').textContent = source.name;
-  $('#reader-subtitle').textContent = source.type === 'bookmark' ? '书签管理 · 拖动排序' : source.type === 'life' || source.limit === 1 ? subtitles[source.type] : `${query ? '搜索结果 · ' : ''}共 ${items.length} 条`;
+  $('#reader-subtitle').textContent = source.type === 'bookmark' ? '书签管理 · 拖动排序' : source.type === 'life' || (source.limit === 1 && source.type !== 'bookmark') ? subtitles[source.type] : `${query ? '搜索结果 · ' : ''}共 ${items.length} 条`;
   $('#reader-status').textContent = state.status === 'stale' ? `更新失败，显示旧缓存 · ${state.error}` : '';
   $('#reader-status').hidden = state.status !== 'stale';
   $('#reader-content').innerHTML = readerMarkup(source, items);
@@ -131,7 +131,7 @@ function card(source) {
     const i = shown[0];
     const comma = i.title.indexOf('，') + 1;
     content = `<div class="poetry-content" lang="zh-Hans"><div class="poetry-eyebrow" aria-hidden="true">POETRY<span></span></div><figure><blockquote class="poetry-verse"><span>${esc(i.title.slice(0, comma))}</span><span>${esc(i.title.slice(comma))}</span></blockquote><figcaption><span>唐 · ${esc(i.author)}</span><cite>《${esc(i.poemTitle)}》</cite></figcaption></figure><svg class="poetry-landscape" viewBox="0 0 280 110" fill="none" aria-hidden="true"><circle cx="204" cy="20" r="10"/><path d="M1 108c38-8 59-27 85-30s37-24 62-14 46-12 72-27 41-4 60 13M79 108c34-6 51-29 78-29s54 23 104 27M125 68l29 10"/></svg></div>`;
-  } else if (source.limit === 1) {
+  } else if (source.limit === 1 && source.type !== 'bookmark') {
     content = readingContent(shown[0]);
   } else if (source.type === 'bookmark') {
     const items = shown.slice(0, source.limit);
@@ -148,7 +148,7 @@ function card(source) {
   const footerRight = isBookmark ? `<button class="bookmark-add-link" data-action="bookmark-add">＋ 添加网址</button><span class="bookmark-total">${bookmarkTotal} 条</span>${refreshButton}`
     : source.type === 'poetry' ? '<button class="poetry-shuffle" data-action="shuffle" title="换一句"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.1 7a8 8 0 0 1 13.2-1.1L20 8M4 16l1.7 2.1A8 8 0 0 0 18.9 17"/></svg><span>换一句</span></button>'
     : `${homeLink}${refreshButton}`;
-  return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'bookmark' ? 'bookmark-card' : source.type === 'poetry' ? 'poetry-card' : source.type === 'life' ? 'life-card' : source.limit === 1 ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer">${footerLeft}<div>${footerRight}</div></footer></article>`;
+  return `<article data-type="${source.type}" class="card ${state.status === 'unconfigured' ? 'unconfigured-card' : ''} ${source.type === 'bookmark' ? 'bookmark-card' : source.type === 'poetry' ? 'poetry-card' : source.type === 'life' ? 'life-card' : source.limit === 1 && source.type !== 'bookmark' ? 'reading-card' : ''}" data-id="${esc(source.id)}" aria-label="${esc(source.name)}"><header class="card-header" draggable="true"><span class="source-icon ${source.type}">${icons[source.type]}</span><div class="card-heading"><h2>${esc(source.name)}</h2><span>${subtitles[source.type]}</span></div><div class="card-tools">${source.type === 'life' ? '<button class="shuffle" data-action="shuffle" title="换一条">换一条 ↻</button>' : ''}<button class="icon-button card-menu" data-action="edit" title="编辑数据源" aria-label="编辑 ${esc(source.name)}">⋯</button></div></header><div class="card-content">${content}</div>${stale ? `<div class="stale-note" role="status">更新失败，显示旧缓存 · ${esc(state.error)}</div>` : ''}<footer class="card-footer">${footerLeft}<div>${footerRight}</div></footer></article>`;
 }
 function render() {
   const scrollY = window.scrollY;
@@ -233,7 +233,7 @@ function sourceFields() {
   if (type === 'bookmark' && !editing) form.elements.limit.value = String(BOOKMARKS_MAX);
   if (form.elements.limit.disabled) form.elements.limit.value = ['weather', 'life', 'poetry'].includes(type) ? 1 : 10;
   form.elements.refreshMinutes.disabled = ['poetry', 'bookmark'].includes(type);
-  $('#source-hint').textContent = type === 'bookmark' ? '网址书签最多 12 条，保存在本机、不联网；单列最多显示 6 条，超过 6 条时卡片自动两列显示。用「书签管理」增删改并拖动排序。' : type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的接口；使用下面的字段映射匹配你的结构。';
+  $('#source-hint').textContent = type === 'bookmark' ? '网址书签最多 12 条，保存在本机、不联网；单列最多 6 条，超过后卡片自动两列。显示条数只限制卡片预览，用「书签管理」可访问全部网址并增删改、拖动排序。' : type === 'qimai' ? '需使用你有权访问的七麦数据接口。可留空稍后配置，不会以其他来源冒充七麦。' : type === 'rss' ? '支持 RSS、Atom 与 JSON Feed。Newsletter 请粘贴发布者的 RSS 地址（常见为网站地址 + /feed）。' : '返回 JSON 的接口；使用下面的字段映射匹配你的结构。';
   if (custom) $('#source-hint').textContent += ' 支持 HTTPS；HTTP 支持 10.0.20.141、localhost 和 127.0.0.1。';
   if (!editing && !custom) { const preset = DEFAULTS.sources.find(s => s.type === type); form.elements.name.value = preset?.name ?? (type === 'bookmark' ? '我的书签' : ''); form.elements.category.value = preset?.category ?? (type === 'bookmark' ? '导航' : '订阅'); if (type === 'weather') form.elements.refreshMinutes.value = 30; }
 }

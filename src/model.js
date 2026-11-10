@@ -65,16 +65,20 @@ export function validateBookmarkItem(input) {
 }
 // The backup field deliberately shares the storage key so both always agree.
 export const BOOKMARKS_FIELD = BOOKMARKS_KEY;
-// An export stays a valid version-1 config at the top level; bookmarks are an
-// OPTIONAL extra field. Older builds ignore unknown keys in validateConfig(),
-// so they can still import a file produced by this version.
 export function cleanBookmarks(items) {
   if (!Array.isArray(items)) return [];
-  const seen = new Set();
+  const seen = new Set(), ids = new Set();
   const clean = [];
   for (const item of items) {
     const valid = validateBookmarkItem(item);
     if (!valid || seen.has(valid.url)) continue;
+    const id = valid.id.slice(0, 200);
+    valid.id = id;
+    for (let suffix = 2; ids.has(valid.id); suffix++) {
+      const ending = `-${suffix}`;
+      valid.id = `${id.slice(0, 200 - ending.length)}${ending}`;
+    }
+    ids.add(valid.id);
     seen.add(valid.url);
     clean.push(valid);
     if (clean.length >= BOOKMARKS_MAX) break;
@@ -82,6 +86,7 @@ export function cleanBookmarks(items) {
   return clean;
 }
 export function buildExportPayload(config, bookmarks) {
+  // Preserve every card. Older builds can ignore bookmarks, but reject bookmark sources.
   return { ...validateConfig(config), [BOOKMARKS_FIELD]: cleanBookmarks(bookmarks) };
 }
 // bookmarks === null: legacy file without the field -> keep local bookmarks untouched.

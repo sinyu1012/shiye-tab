@@ -93,7 +93,7 @@ test('网址书签类型、URL 规范化与字段清洗', async () => {
   assert.equal(BOOKMARKS_TWO_COL_AFTER, 6);
 });
 
-test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', async () => {
+test('书签增删改、脏数据清洗与上限，适配器返回完整列表', async () => {
   const store = new Map();
   globalThis.localStorage = {
     getItem: k => store.has(k) ? store.get(k) : null,
@@ -136,14 +136,28 @@ test('书签增删改、脏数据清洗与上限，适配器按 limit 返回', a
       { title: 'C', url: 'https://c.example/' },
     ]);
     const data = await loadSource({ type: 'bookmark', limit: 2 });
-    assert.deepEqual(data.items.map(i => i.title), ['A', 'B']);
+    assert.deepEqual(data.items.map(i => i.title), ['A', 'B', 'C'], 'the adapter returns every bookmark; only the card preview truncates');
     assert.equal(typeof data.fetchedAt, 'number');
+    // IDs from external backups must stay unique and stable across repeated reads.
+    store.set('bookmarks', JSON.stringify([
+      { id: 'same', title: 'A', url: 'https://a.example/' },
+      { id: 'same', title: 'B', url: 'https://b.example/' },
+      { id: 'same-2', title: 'C', url: 'https://c.example/' },
+    ]));
+    const repaired = await getBookmarks();
+    assert.equal(new Set(repaired.map(b => b.id)).size, 3);
+    assert.deepEqual((await getBookmarks()).map(b => b.id), repaired.map(b => b.id));
+    await updateBookmark(repaired[1].id, { title: 'B 修改', url: repaired[1].url });
+    assert.deepEqual((await getBookmarks()).map(b => b.title), ['A', 'B 修改', 'C']);
+    await removeBookmark(repaired[1].id);
+    assert.deepEqual((await getBookmarks()).map(b => b.title), ['A', 'C']);
   } finally { delete globalThis.localStorage; }
 });
 
 
 test('导出载荷保持 v1 配置格式，并携带清洗后的网址书签', async () => {
   const { buildExportPayload, validateConfig } = await import('../src/model.js');
+  const { validateConfig: validateLegacyConfig } = await import('./fixtures/model-before-bookmarks.js');
   const payload = buildExportPayload(cloneDefaults(), [
     { title: 'MDN', url: 'developer.mozilla.org' },
     { title: '危险', url: 'javascript:alert(1)' },
@@ -154,11 +168,16 @@ test('导出载荷保持 v1 配置格式，并携带清洗后的网址书签', a
   assert.equal(payload.version, 1);
   assert.equal(payload.sources.length, 5);
   assert.deepEqual(payload.bookmarks.map(b => b.url), ['https://developer.mozilla.org/']);
-  // An older build validates only version/sources and ignores unknown keys.
-  assert.doesNotThrow(() => validateConfig(payload));
+  // The real old validator ignores bookmarks only when every source type is supported.
+  assert.doesNotThrow(() => validateLegacyConfig(payload));
   assert.equal(validateConfig(payload).sources.length, 5);
   assert.equal('bookmarks' in validateConfig(payload), false);
   assert.equal(JSON.parse(JSON.stringify(payload)).bookmarks.length, 1, 'payload survives a JSON round trip');
+  const withCard = cloneDefaults();
+  withCard.sources.push({ id: 'links', type: 'bookmark', name: '我的书签', limit: 12 });
+  const fullPayload = buildExportPayload(withCard, payload.bookmarks);
+  assert.equal(validateConfig(fullPayload).sources.at(-1).type, 'bookmark');
+  assert.throws(() => validateLegacyConfig(fullPayload), /数据源类型或 ID 无效/);
 });
 
 test('导入载荷兼容旧格式、新格式与脏字段', async () => {
@@ -179,6 +198,11 @@ test('导入载荷兼容旧格式、新格式与脏字段', async () => {
   assert.deepEqual(parseImportPayload({ ...legacy, bookmarks: [] }).bookmarks, [], 'empty array is an explicit empty state');
   const many = Array.from({ length: 15 }, (_, i) => ({ title: `t${i}`, url: `https://e.example/${i}` }));
   assert.equal(parseImportPayload({ ...legacy, bookmarks: many }).bookmarks.length, BOOKMARKS_MAX);
+  const sameId = parseImportPayload({ ...legacy, bookmarks: [
+    { id: 'same', url: 'https://a.example/' }, { id: 'same', url: 'https://b.example/' },
+  ] }).bookmarks;
+  assert.equal(sameId.length, 2);
+  assert.notEqual(sameId[0].id, sameId[1].id);
   assert.throws(() => parseImportPayload({ ...legacy, version: 2 }), /配置格式无效/);
 });
 
