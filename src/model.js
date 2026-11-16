@@ -2,7 +2,9 @@ export const LIFE_REPO = 'https://github.com/eternity4719/HowToLiveBetter';
 export const QIMAI_HOME = 'https://www.qimai.cn/rank/index/brand/free/country/cn/genre/36/device/iphone';
 export const TYPES = ['weather', 'life', 'poetry', 'github', 'apple', 'qimai', 'rss', 'json', 'bookmark'];
 export const BOOKMARKS_KEY = 'bookmarks';
-export const BOOKMARKS_MAX = 200;
+// Up to 12 URLs: one column holds at most 6, beyond that the card splits into two columns.
+export const BOOKMARKS_MAX = 12;
+export const BOOKMARKS_TWO_COL_AFTER = 6;
 export const DEFAULTS = {
   version: 1, theme: 'system', columns: 4,
   sources: [
@@ -110,7 +112,7 @@ export function validateConfig(input) {
     for (const key of ['items', 'title', 'url', 'description', 'meta']) mapping[key] = string(s.mapping?.[key], key, 200);
     return { id: s.id, type: s.type, name, category: string(s.category, '订阅', 20) || '订阅', url,
       ...(s.type === 'weather' ? { location } : {}),
-      home: safeUrl(string(s.home, '', 3000)), limit: ['weather', 'life', 'poetry'].includes(s.type) ? 1 : s.type === 'qimai' || s.type === 'apple' ? 10 : Math.min(30, Math.max(1, Number(s.limit) || 10)),
+      home: safeUrl(string(s.home, '', 3000)), limit: ['weather', 'life', 'poetry'].includes(s.type) ? 1 : s.type === 'qimai' || s.type === 'apple' ? 10 : s.type === 'bookmark' ? Math.min(BOOKMARKS_MAX, Math.max(1, Number(s.limit) || BOOKMARKS_MAX)) : Math.min(30, Math.max(1, Number(s.limit) || 10)),
       refreshMinutes: Math.min(10080, Math.max(5, Number(s.refreshMinutes) || 60)), mapping };
   });
   return { version: 1, theme: ['light', 'dark', 'system'].includes(input.theme) ? input.theme : 'system', columns: [2,3,4].includes(input.columns) ? input.columns : DEFAULTS.columns, sources };
