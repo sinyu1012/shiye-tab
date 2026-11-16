@@ -137,7 +137,7 @@ function card(source) {
     const items = shown.slice(0, source.limit);
     const twoCol = items.length > BOOKMARKS_TWO_COL_AFTER;
     content = `<div class="list-preview">${itemList(source, items, { className: twoCol ? 'two-col' : '', rules: true })}</div>`;
-  } else content = `<div class="list-preview">${itemList(source, shown.slice(0, Math.min(source.limit, 5)))}<button class="content-more" data-action="read">查看全部 ${shown.length} 条 →</button></div>`;
+  } else content = `<div class="list-preview">${itemList(source, shown.slice(0, source.limit))}</div>`;
   const stale = state.status === 'stale';
   const isBookmark = source.type === 'bookmark';
   const refreshButton = `<button class="icon-button refresh-icon" data-action="refresh" aria-label="刷新 ${esc(source.name)}" ${state.status === 'loading' ? 'disabled' : ''}>↻</button>`;

@@ -125,17 +125,20 @@ try {
   assert.equal(layout.boardTop, 88);
   assert.equal(layout.cardHeight, 320);
   log.push({ compactLayout: layout });
-  assert.equal(await page.locator('[data-id="apple"] .item-list li').count(), 5);
-  await page.locator('[data-id="apple"] [data-action="read"]').click();
-  assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
-  await page.keyboard.press('Escape');
-  assert.equal(await page.locator('#reader-dialog').evaluate(el => el.open), false);
-  assert.equal(await page.locator('[data-id="apple"] [data-action="read"]').evaluate(el => el === document.activeElement), true);
+  const applePreview = await page.locator('[data-id="apple"] .item-list').evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const rows = [...el.querySelectorAll('li')].map(li => li.getBoundingClientRect());
+    return { rows: rows.length, fullyVisible: rows.filter(r => r.top >= box.top - 1 && r.bottom <= box.bottom + 1).length, scrollable: el.scrollHeight > el.clientHeight };
+  });
+  assert.equal(applePreview.rows, 10, 'Preview renders every row the card limit allows');
+  assert.equal(applePreview.fullyVisible, 6, 'The unchanged 320px card fits exactly six rows');
+  assert.equal(applePreview.scrollable, true, 'Rows past the sixth scroll instead of being clipped');
+  assert.equal(await page.locator('[data-id="apple"] .content-more').count(), 0, 'List previews carry no 查看全部 row');
   await page.locator('.life-card [data-action="read"]').click();
   assert.ok(await page.locator('#reader-content .life-cost').isVisible());
   assert.equal(await page.locator('#reader-content a').first().getAttribute('target'), '_blank');
   await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
-  log.push('Compact cards show five ranking rows; reader retains all ten, life details, original links and Escape focus restoration.');
+  log.push('List cards render every row their 显示条数 allows with no 查看全部 row: six rows fill the unchanged 320px card and the rest scroll. Life reader, original links and close action verified.');
   await page.screenshot({ path: `artifacts/${live ? 'live' : 'tested'}-dashboard.png`, fullPage: true });
   await page.getByRole('button', { name: '开发', exact: true }).click();
   assert.equal(await page.locator('.card').count(), 1);
@@ -349,12 +352,19 @@ try {
         cards: [...document.querySelectorAll('.card')].map(el => ({ height: el.getBoundingClientRect().height, bottom: el.getBoundingClientRect().bottom })),
         previewsFit: [...document.querySelectorAll('.card-content')].every(el => el.scrollHeight <= el.clientHeight && el.scrollWidth <= el.clientWidth),
         readersVisible: [...document.querySelectorAll('.card [data-action="read"]')].every(el => el.getBoundingClientRect().bottom <= el.closest('.card').querySelector('.card-footer').getBoundingClientRect().top),
+        appleRows: (() => {
+          const el = document.querySelector('[data-id="apple"] .item-list');
+          if (!el) return 0;
+          const box = el.getBoundingClientRect();
+          return [...el.querySelectorAll('li')].filter(li => { const r = li.getBoundingClientRect(); return r.top >= box.top - 1 && r.bottom <= box.bottom + 1; }).length;
+        })(),
       }));
       assert.equal(geometry.columns, width >= 1600 ? 4 : width > 1100 ? 3 : width > 690 ? 2 : 1, `Adaptive columns at ${width}px`);
       assert.equal(geometry.horizontalOverflow, false, `No overflow at ${width}px`);
       assert.ok(geometry.cards.every(c => c.height === 320), `Every card remains 320px at ${width}px`);
       assert.equal(geometry.previewsFit, true, `Previews fit without internal scrolling at ${width}px`);
       assert.equal(geometry.readersVisible, true, `Reader entries remain visible at ${width}px`);
+      assert.equal(geometry.appleRows, 6, `Six rows fill each list card at ${width}px`);
       if (width >= 1600) assert.ok(geometry.cards.every(c => c.bottom <= 900), 'All eight cards fit in the first viewport');
     }
     await page.setViewportSize({ width: 1920, height: 900 });
@@ -363,17 +373,11 @@ try {
     assert.equal(await page.locator('#reader-content .reading-description').textContent(), longText, 'RSS without a link retains more than 500 characters and all paragraphs');
     await page.screenshot({ path: 'artifacts/compact-reader.png', animations: 'disabled' });
     await page.keyboard.press('Escape');
-    await page.locator('[data-id="json"] [data-action="read"]').click();
-    assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
-    assert.equal(await page.locator('#reader-content .item-body p').last().textContent(), longText, 'JSON descriptions are not truncated');
-    await page.getByRole('button', { name: '关闭阅读', exact: true }).click();
-    await page.locator('[data-id="qimai"] [data-action="read"]').click();
-    assert.equal(await page.locator('#reader-content .item-list li').count(), 10);
-    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-id="json"] .item-list li').count(), 10, 'List previews render every row the card limit allows');
+    assert.equal(await page.locator('[data-id="json"] .item-body p').last().textContent(), longText, 'JSON descriptions are not truncated');
+    assert.equal(await page.locator('[data-id="qimai"] .item-list li').count(), 10);
     await page.locator('#search').fill('条目 10');
-    await page.locator('[data-id="json"] [data-action="read"]').click();
-    assert.equal(await page.locator('#reader-content .item-list li').count(), 1, 'Reader respects search results beyond the first five rows');
-    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-id="json"] .item-list li').count(), 1, 'Preview respects search results past the sixth visible row');
     await page.locator('#search').fill('');
     await page.getByRole('button', { name: '外观与设置' }).click();
     await page.locator('#theme').selectOption('dark');
@@ -399,7 +403,7 @@ try {
     });
     await page.reload();
     await page.waitForSelector('#board[data-columns="4"]');
-    log.push('Eight fixture cards fit the wide first viewport; all 320px cards and reader actions fit at nine widths. Full RSS/JSON text, all ranking rows, filtered reader, themes and one-time column migration verified.');
+    log.push('Eight fixture cards fit the wide first viewport; all 320px cards keep their six-row preview at nine widths. Full RSS text, JSON descriptions, search hits past the sixth row, themes and one-time column migration verified.');
   }
   if (!live) {
     await page.setViewportSize({ width: 1440, height: 900 });

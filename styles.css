@@ -83,11 +83,10 @@ main{max-width:1900px;margin:auto;padding:24px 24px 0}
 .item-body p{font-size:10px;color:var(--muted);line-height:16px;margin:3px 0 0;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .item-meta{font-size:11px;white-space:nowrap;color:var(--sub);align-self:flex-start;line-height:20px;max-width:35%;overflow:hidden;text-overflow:ellipsis}
 .list-preview{height:100%;display:flex;flex-direction:column;min-height:0}
-.list-preview .item-list{flex:1;min-height:0;overflow:hidden}
+.list-preview .item-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 .list-preview .item-body p{display:none}
 .content-more{font-size:12px;color:var(--accent);min-height:28px;padding:4px 0;white-space:nowrap;flex-shrink:0}
 .content-more:hover{text-decoration:underline;text-underline-offset:3px}
-.list-preview>.content-more{margin:0 16px;text-align:right;height:32px}
 /* A configured single entry reads like an article, rather than a one-row list. */
 .reading-card .card-content{background:var(--life)}
 .reading-content{display:flex;flex-direction:column;min-height:100%;padding:14px 16px 8px;overflow-wrap:anywhere}
